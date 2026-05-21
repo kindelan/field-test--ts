@@ -9,6 +9,115 @@ async function main() {
     const detail = document.getElementById("bike-detail");
     const form = document.getElementById("bike-form");
     const history = document.getElementById("bike-history");
+    const placeholder = document.getElementById("placeholder-view");
+    let currentSelectedId = null;
+    /* =============================
+       SELECCIÓN DE BICI
+    ============================= */
+    const onSelectBike = (b) => {
+        // Limpiar otros paneles dinámicos al cambiar de bicicleta
+        form.innerHTML = "";
+        form.style.display = "none";
+        history.innerHTML = "";
+        history.style.display = "none";
+        currentSelectedId = b.id;
+        showDetail(b);
+        refreshListHighlight();
+    };
+    /* =============================
+       CERRAR TODO
+    ============================= */
+    function closeAll() {
+        currentSelectedId = null;
+        detail.innerHTML = "";
+        detail.style.display = "none";
+        form.innerHTML = "";
+        form.style.display = "none";
+        history.innerHTML = "";
+        history.style.display = "none";
+        placeholder.style.display = "block";
+        refreshListHighlight();
+    }
+    /* =============================
+       ACTUALIZAR RESALTADO DE LISTA
+    ============================= */
+    async function refreshListHighlight() {
+        const bikes = await service.list();
+        renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+    }
+    /* =============================
+       REFRESH GENERAL
+    ============================= */
+    async function refresh(selectedId) {
+        if (selectedId !== undefined) {
+            currentSelectedId = selectedId;
+        }
+        const bikes = await service.list();
+        renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+        if (currentSelectedId) {
+            const b = bikes.find(x => x.id === currentSelectedId);
+            if (b) {
+                showDetail(b);
+            }
+            else {
+                closeAll();
+            }
+        }
+        else {
+            closeAll();
+        }
+    }
+    /* =============================
+       MOSTRAR DETALLES
+    ============================= */
+    async function showDetail(bike) {
+        placeholder.style.display = "none";
+        detail.style.display = "block";
+        renderBikeDetail(bike, detail, {
+            onEditMeta: () => {
+                form.style.display = "block";
+                renderEditForm(bike, form, async (changes) => {
+                    await service.update(bike.id, changes);
+                    await refresh(bike.id);
+                }, () => {
+                    form.innerHTML = "";
+                    form.style.display = "none";
+                });
+                // Scroll suave al formulario en móviles
+                form.scrollIntoView({ behavior: "smooth" });
+            },
+            onShowHistory: async () => {
+                history.style.display = "block";
+                const data = await service.getHistory(bike.id);
+                renderBikeHistory(data, history, () => {
+                    history.innerHTML = "";
+                    history.style.display = "none";
+                });
+                history.scrollIntoView({ behavior: "smooth" });
+            },
+            onChangeComponent: (componentType) => {
+                form.style.display = "block";
+                renderChangeComponentForm(bike, form, componentType, async (data) => {
+                    await service.changeBikeComponent({
+                        bikeId: bike.id,
+                        componentType: componentType,
+                        componentTypeCode: data.type,
+                        componentSerialCode: data.code,
+                        componentVersion: data.fw ?? null,
+                        notes: data.notes ?? null
+                    });
+                    await refresh(bike.id);
+                }, () => {
+                    form.innerHTML = "";
+                    form.style.display = "none";
+                });
+                form.scrollIntoView({ behavior: "smooth" });
+            },
+            onClose: () => {
+                closeAll();
+            }
+        });
+    }
     /* =============================
        CREAR BICI
     ============================= */
@@ -22,7 +131,7 @@ async function main() {
                 return;
             }
             try {
-                await service.create({
+                const newBike = await service.create({
                     bikecode,
                     bikecode_canon: bikecode.toLowerCase(),
                     location: null,
@@ -40,100 +149,13 @@ async function main() {
                     other: null
                 });
                 createInput.value = "";
-                await refresh();
+                await refresh(newBike.id);
             }
             catch (e) {
                 console.error(e);
                 alert("Error creando bici");
             }
         };
-    }
-    /* =============================
-       REFRESH
-    ============================= */
-    async function refresh(selectedId) {
-        const bikes = await service.list();
-        renderBikeList(bikes, list, showDetail);
-        if (selectedId) {
-            const b = bikes.find(x => x.id === selectedId);
-            if (b)
-                showDetail(b);
-        }
-    }
-    /* =============================
-       DETAIL
-    ============================= */
-    async function showDetail(bike) {
-        renderBikeDetail(bike, detail, 
-        /* -------------------------
-           EDIT BICI (campos normales)
-        ------------------------- */
-        () => {
-            renderEditForm(bike, form, async (changes) => {
-                await service.update(bike.id, changes);
-                await refresh(bike.id);
-            });
-        }, 
-        /* -------------------------
-           HISTÓRICO (timeline bueno)
-        ------------------------- */
-        async () => {
-            const data = await service.getHistory(bike.id);
-            renderBikeHistory(data, history);
-        }, 
-        /* -------------------------
-           CAMBIO COMPONENTES
-        ------------------------- */
-        () => {
-            /* ===== MOTOR ===== */
-            renderChangeComponentForm(bike, form, "motor", async (data) => {
-                await service.changeBikeComponent({
-                    bikeId: bike.id,
-                    componentType: "motor",
-                    componentTypeCode: data.type,
-                    componentSerialCode: data.code,
-                    componentVersion: data.fw ?? null,
-                    notes: data.notes ?? null
-                });
-                await refresh(bike.id);
-            });
-            /* ===== BATTERY ===== */
-            renderChangeComponentForm(bike, form, "battery", async (data) => {
-                await service.changeBikeComponent({
-                    bikeId: bike.id,
-                    componentType: "battery",
-                    componentTypeCode: data.type,
-                    componentSerialCode: data.code,
-                    componentVersion: data.fw ?? null,
-                    notes: data.notes ?? null
-                });
-                await refresh(bike.id);
-            });
-            /* ===== HMI ===== */
-            renderChangeComponentForm(bike, form, "hmi", async (data) => {
-                await service.changeBikeComponent({
-                    bikeId: bike.id,
-                    componentType: "hmi",
-                    componentTypeCode: data.type,
-                    componentSerialCode: data.code,
-                    componentVersion: data.fw ?? null,
-                    notes: data.notes ?? null
-                });
-                await refresh(bike.id);
-            });
-            /* ===== OTHER ===== */
-            renderChangeComponentForm(bike, form, "other", async (data) => {
-                await service.changeBikeComponent({
-                    bikeId: bike.id,
-                    componentType: "other",
-                    componentTypeCode: data.type,
-                    componentSerialCode: data.code,
-                    componentVersion: data.fw ?? null,
-                    notes: data.notes ?? null
-                });
-                await refresh(bike.id);
-            });
-        });
     }
     /* =============================
        INIT
