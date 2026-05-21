@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Km acumulados por bici</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+      width: 70%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+    }
+    th {
+      background: #f0f0f0;
+      text-align: left;
+    }
+    td {
+      text-align: right;
+    }
+    td:first-child,
+    td:nth-child(2) {
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Km y desnivel acumulados por bici</h1>
+
+<button id="btnLoad">Cargar datos</button>
+
+<table id="totals">
+  <thead>
+    <tr>
+      <th>Bici</th>
+      <th>Motor</th>
+      <th>Km acumulados</th>
+      <th>Desnivel acumulado</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+/* ===============================
+   CONFIGURACIÓN (CAMBIA SOLO AQUÍ)
+================================ */
+alert("ESTE ES EL HTML QUE SE ESTA EJECUTANDO");
+
+// ✅ URL del proyecto (CORRECTA)
+const SUPABASE_PROJECT_URL =
+  "https://vmdbszgsbcaeiznkhcvi.supabase.co";
+
+// ✅ anon key del proyecto
+const SUPABASE_ANON_KEY =
+ "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZGJzemdzYmNhZWl6bmtoY3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NDU0OTIsImV4cCI6MjA4ODMyMTQ5Mn0.hK0C4GQSY2xhZPJQEBfN85WyRsljcYEDEo25te4WpF8"
+
+/* ===============================
+   CARGAR VISTA bike_totals
+================================ */
+
+async function loadTotals() {
+  console.log("ENTRO EN loadTotals");
+
+  const tbody = document.querySelector("#totals tbody");
+  tbody.innerHTML = "";
+
+  const url = `${SUPABASE_PROJECT_URL}/rest/v1/bike_totals?select=*`;
+  console.log("URL:", url);
+
+  const res = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + SUPABASE_ANON_KEY
+    }
+  });
+
+  console.log("STATUS:", res.status);
+
+  const text = await res.text();
+  console.log("RAW RESPONSE:", text);
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error("NO ES JSON");
+    return;
+  }
+
+  console.log("PARSED DATA:", data);
+
+  data.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.bike_code}</td>
+      <td>${row.motor_type}</td>
+      <td>${row.total_distance_km}</td>
+      <td>${row.total_elevation_m}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+document
+  .getElementById("btnLoad")
+  .addEventListener("click", loadTotals);
+</script>
+
+</body>
+</html>
+``

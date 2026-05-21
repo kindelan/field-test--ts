@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Importar Excel</title>
+
+  <!-- ✅ SheetJS BIEN cargado -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 8px;
+    }
+    #import-status {
+      margin-top: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Importar Excel</h1>
+
+<input type="file" id="excel-file" accept=".xlsx" />
+<button id="upload-btn">Subir Excel</button>
+
+<div id="import-status"></div>
+
+<hr>
+
+<input id="filter-bike" placeholder="Filtrar bici">
+<input id="filter-motor" placeholder="Filtrar motor">
+
+<table>
+  <thead>
+    <tr>
+      <th>Bici</th>
+      <th>Motor</th>
+      <th>Km</th>
+    </tr>
+  </thead>
+  <tbody id="summary-body"></tbody>
+</table>
+
+<!-- ✅ Controller compilado COMO MÓDULO -->
+<script type="module" src="/dist/app/controllers/import.controller.js"></script>
+
+</body>
+</html>

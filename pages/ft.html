@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Field Tests</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    }
+  }
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    h2, h3, h4 {
+      margin-top: 20px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .list button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 4px;
+    }
+
+    button {
+      margin-left: 6px;
+      cursor: pointer;
+    }
+
+    #delete-ft-btn {
+      color: red;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    td, th {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+
+    /* ✅ Status colores */
+    .status-active {
+      color: green;
+      font-weight: bold;
+    }
+
+    .status-inactive {
+      color: gray;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Field Tests</h2>
+
+<!-- ========================= -->
+<!-- CREAR -->
+<!-- ========================= -->
+<div class="section">
+  <h3>Crear Field Test</h3>
+
+  <form id="create-ft-form" class="row">
+    <label>Nombre:
+      <input name="name" required />
+    </label>
+
+    <label>Estado:
+      <select name="status">
+        <option value="planned">Planned</option>
+        <option value="active" selected>Active</option>
+        <option value="paused">Paused</option>
+        <option value="finished">Finished</option>
+      </select>
+    </label>
+
+    <button type="submit">Crear</button>
+  </form>
+</div>
+
+<!-- ========================= -->
+<!-- FILTRO -->
+<!-- ========================= -->
+<div class="section">
+  <h3>Filtro</h3>
+
+  <label>
+    Estado:
+    <select id="ft-filter-status">
+      <option value="all">Todos</option>
+      <option value="planned">Planned</option>
+      <option value="active">Active</option>
+      <option value="paused">Paused</option>
+      <option value="finished">Finished</option>
+    </select>
+  </label>
+</div>
+
+<!-- ========================= -->
+<!-- LISTA -->
+<!-- ========================= -->
+<div class="section">
+  <h3>Field Tests existentes</h3>
+  <div id="ft-list" class="list"></div>
+</div>
+
+<!-- ========================= -->
+<!-- DETALLE -->
+<!-- ========================= -->
+<div class="section">
+
+  <h3>Detalle del Field Test seleccionado</h3>
+
+  <div class="row">
+    <h4>Estado</h4>
+    <select id="selected-ft-status" disabled>
+      <option value="planned">Planned</option>
+      <option value="active">Active</option>
+      <option value="paused">Paused</option>
+      <option value="finished">Finished</option>
+    </select>
+  </div>
+
+  <div class="section">
+    <button id="delete-ft-btn" disabled>Eliminar Field Test</button>
+  </div>
+
+  <!-- ================= KM SUMMARY ================= -->
+  <div class="section">
+    <h4 id="ft-total-km">Km totales: —</h4>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Bici</th>
+          <th>Motor</th>
+          <th>Km</th>
+          <th>Status</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody id="ft-km-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ================= BIKES ASSIGNED ================= -->
+  <div class="section">
+    <h4>Bicis asignadas</h4>
+    <div id="bikes-assigned"></div>
+  </div>
+
+  <!-- ================= BIKES AVAILABLE ================= -->
+  <div class="section">
+    <h4>Bicis disponibles</h4>
+    <div id="bikes-available"></div>
+  </div>
+
+</div>
+
+<!-- ========================= -->
+<!-- CONTROLLER -->
+<!-- ========================= -->
+<script type="module" src="/dist/app/controllers/ft.controller.js"></script>
+
+</body>
+</html>

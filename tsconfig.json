@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": false,
+    "rootDir": ".",
+    "outDir": "dist",
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["app/**/*.ts"],
+  "exclude": [
+    "supabase/functions"
+  ]
+}
