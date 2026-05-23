@@ -6,6 +6,7 @@ import {
   renderBikeHistory,
   renderChangeComponentForm
 } from "./bikes.ui.js";
+import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 
 const service = new BikesService();
 
@@ -19,6 +20,7 @@ async function main() {
   const history = document.getElementById("bike-history")!;
   const placeholder = document.getElementById("placeholder-view")!;
 
+  let allBikes: any[] = [];
   let currentSelectedId: string | null = null;
 
   /* =============================
@@ -52,11 +54,29 @@ async function main() {
   }
 
   /* =============================
+     RENDERIZADO FILTRADO DE LISTA
+  ============================= */
+  function renderFilteredList() {
+    const searchCode = (document.getElementById("search-bike-code") as HTMLInputElement)?.value.toLowerCase() || "";
+    const searchMotor = (document.getElementById("search-motor-type") as HTMLInputElement)?.value.toLowerCase() || "";
+
+    const filtered = allBikes.filter(b => {
+      const normBike = normalizeBikeCode(b.bikecode || "")?.toLowerCase() || "";
+      const normSearch = normalizeBikeCode(searchCode)?.toLowerCase() || "";
+      const matchesCode = normBike.includes(normSearch) || (b.bikecode || "").toLowerCase().includes(searchCode);
+      const matchesMotor = (b.motortype || "").toLowerCase().includes(searchMotor);
+      return matchesCode && matchesMotor;
+    });
+
+    renderBikeList(filtered, list, onSelectBike, currentSelectedId);
+  }
+
+  /* =============================
      ACTUALIZAR RESALTADO DE LISTA
   ============================= */
   async function refreshListHighlight() {
-    const bikes = await service.list();
-    renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+    allBikes = await service.list();
+    renderFilteredList();
   }
 
   /* =============================
@@ -66,12 +86,11 @@ async function main() {
     if (selectedId !== undefined) {
       currentSelectedId = selectedId;
     }
-    const bikes = await service.list();
-    
-    renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+    allBikes = await service.list();
+    renderFilteredList();
 
     if (currentSelectedId) {
-      const b = bikes.find(x => x.id === currentSelectedId);
+      const b = allBikes.find(x => x.id === currentSelectedId);
       if (b) {
         showDetail(b);
       } else {
@@ -158,9 +177,10 @@ async function main() {
       }
 
       try {
+        const norm = normalizeBikeCode(bikecode);
         const newBike = await service.create({
           bikecode,
-          bikecode_canon: bikecode.toLowerCase(),
+          bikecode_canon: norm ? norm.toLowerCase() : bikecode.toLowerCase(),
           location: null,
           scope: null,
           target: null,
@@ -184,6 +204,19 @@ async function main() {
         alert("Error creando bici");
       }
     };
+  }
+
+  /* =============================
+     BUSCADOR / FILTROS
+  ============================= */
+  const searchCodeInput = document.getElementById("search-bike-code") as HTMLInputElement;
+  const searchMotorInput = document.getElementById("search-motor-type") as HTMLInputElement;
+
+  if (searchCodeInput) {
+    searchCodeInput.addEventListener("input", renderFilteredList);
+  }
+  if (searchMotorInput) {
+    searchMotorInput.addEventListener("input", renderFilteredList);
   }
 
   /* =============================

@@ -139,14 +139,20 @@ export class BikesService {
         }
         /* -------------------------------------------------
            5️⃣ Guardar histórico (timeline)
+           NOTA: Se comenta este bloque porque la tabla 'bike_history_changes' no existe en el esquema de Supabase.
+           En su lugar, existe la vista 'v_bike_history_changes' que lee de la tabla 'bike_history'.
+           El histórico se registra automáticamente mediante triggers en la base de datos cuando se actualiza la tabla 'bikes' en el Paso 4.
         ------------------------------------------------- */
+        /*
         const oldValue = current
-            ? `${current.component_type_code || ""}/${current.component_serial_code || ""}/${current.component_version || ""}`
-            : null;
+          ? `${current.component_type_code || ""}/${current.component_serial_code || ""}/${current.component_version || ""}`
+          : null;
+    
         const newValue = `${input.componentTypeCode}/${input.componentSerialCode}/${input.componentVersion || ""}`;
+    
         const { error: historyErr } = await supabase
-            .from("bike_history_changes")
-            .insert({
+          .from("bike_history_changes")
+          .insert({
             bike_id: input.bikeId,
             event_type: "component_change",
             field: input.componentType,
@@ -155,9 +161,10 @@ export class BikesService {
             changed_at: changedAt,
             changed_by: null,
             notes: input.notes ?? null
-        });
-        if (historyErr)
-            throw historyErr;
+          });
+    
+        if (historyErr) throw historyErr;
+        */
     }
     /* =============================
        HISTÓRICO (timeline)

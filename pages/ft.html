@@ -2,8 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Field Tests</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Field Tests - Premium</title>
 
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase Import Map -->
   <script type="importmap">
   {
     "imports": {
@@ -13,180 +20,608 @@
   </script>
 
   <style>
+    /* ==========================================
+       VARIABLES & BASE DESIGN SYSTEM
+       ========================================== */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      --primary-hover: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      
+      --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 30px;
+      line-height: 1.5;
     }
 
-    h2, h3, h4 {
-      margin-top: 20px;
-    }
-
-    .section {
-      margin-bottom: 20px;
-    }
-
-    .row {
+    /* ==========================================
+       HEADER & NAVIGATION
+       ========================================== */
+    header {
       display: flex;
-      gap: 10px;
+      justify-content: space-between;
       align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 30px;
       flex-wrap: wrap;
     }
 
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+
+    .nav-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: var(--transition-all);
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+    }
+
+    .nav-link.active {
+      color: white;
+      background: var(--primary-gradient);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ==========================================
+       LAYOUT CONTAINER
+       ========================================== */
+    .app-container {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+
+    /* ==========================================
+       PANELS & CARDS
+       ========================================== */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      transition: var(--transition-all);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ==========================================
+       LISTS & BUTTONS
+       ========================================== */
+    .bike-list-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 40vh;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 15px;
+    }
+
+    .bike-list-wrapper::-webkit-scrollbar {
+      width: 6px;
+    }
+    .bike-list-wrapper::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    /* Estilo de botones de la lista de Field Tests */
     .list button {
-      display: block;
-      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
       text-align: left;
-      margin-bottom: 4px;
+      width: 100%;
+      color: var(--text-primary);
+      transition: var(--transition-all);
+      font-size: 14px;
+      font-weight: 500;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .list button:hover {
+      background: rgba(99, 102, 241, 0.05);
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: scale(1.01);
+    }
+
+    .list button.active {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: #6366f1;
+      box-shadow: var(--shadow-sm);
     }
 
     button {
-      margin-left: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
+      transition: var(--transition-all);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
+    button:hover {
+      background: var(--border-color);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    button.primary-action {
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+    }
+
+    button.primary-action:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Botón eliminar */
     #delete-ft-btn {
-      color: red;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--accent-red);
+    }
+    #delete-ft-btn:hover {
+      background: var(--accent-red);
+      color: white;
+    }
+    #delete-ft-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: var(--bg-input);
+      border-color: var(--border-color);
+      color: var(--text-secondary);
     }
 
-    table {
-      border-collapse: collapse;
-      margin-top: 10px;
+    /* ==========================================
+       FORMS & INPUTS
+       ========================================== */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    form input, form select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition-all);
       width: 100%;
     }
 
-    td, th {
-      border: 1px solid #ccc;
-      padding: 6px 8px;
+    form input:focus, form select:focus {
+      border-color: #6366f1;
+    }
+
+    /* ==========================================
+       TABLES
+       ========================================== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-md);
     }
 
     th {
-      background: #f5f5f5;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    /* ✅ Status colores */
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: var(--transition-all);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(99, 102, 241, 0.03);
+    }
+
+    /* Status badges */
     .status-active {
-      color: green;
-      font-weight: bold;
+      color: var(--accent-green);
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.1);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: inline-block;
     }
 
     .status-inactive {
-      color: gray;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: inline-block;
+    }
+
+    /* ==========================================
+       RIGHT PANEL (DETAILS)
+       ========================================== */
+    .details-area {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+
+    .placeholder-view {
+      border: 2px dashed var(--border-color);
+      border-radius: 16px;
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    .placeholder-view svg {
+      margin-bottom: 12px;
+      color: var(--border-color);
+    }
+
+    /* Estilos dinámicos para los botones dentro de ft-total-km */
+    #ft-total-km {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      width: 100%;
+    }
+
+    #ft-total-km button {
+      padding: 6px 12px;
+      font-size: 13px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition-all);
+    }
+
+    #ft-total-km button:hover {
+      background: var(--border-color);
+      color: white;
+    }
+
+    /* ==========================================
+       BIKE PILLES (ASSIGNED / AVAILABLE)
+       ========================================== */
+    #bikes-assigned, #bikes-available {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 5px 0;
+    }
+    
+    #bikes-assigned > div, #bikes-available > div {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+      transition: var(--transition-all);
+    }
+    
+    #bikes-assigned > div:hover, #bikes-available > div:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    #bikes-assigned button, #bikes-available button {
+      background: transparent;
+      border: none;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: var(--transition-all);
+    }
+    
+    #bikes-assigned button {
+      color: var(--text-secondary);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      background: rgba(239, 68, 68, 0.05);
+    }
+    
+    #bikes-assigned button:hover {
+      color: white;
+      background: var(--accent-red);
+      border-color: var(--accent-red);
+    }
+    
+    #bikes-available button {
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      background: rgba(6, 182, 212, 0.05);
+    }
+    
+    #bikes-available button:hover {
+      color: white;
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
     }
   </style>
 </head>
 
 <body>
 
-<h2>Field Tests</h2>
+  <header>
+    <div class="header-left">
+      <h1>Bikes Manager</h1>
+      <nav class="nav-container">
+        <a href="/bikes.html" class="nav-link">Bicicletas</a>
+        <a href="/ft.html" class="nav-link active">Field Tests</a>
+        <a href="/import.html" class="nav-link">Importar Excel</a>
+      </nav>
+    </div>
+  </header>
 
-<!-- ========================= -->
-<!-- CREAR -->
-<!-- ========================= -->
-<div class="section">
-  <h3>Crear Field Test</h3>
+  <div class="app-container">
+    
+    <!-- PANEL IZQUIERDO -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Filtrar y Buscar</h3>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>Estado de Field Test</label>
+        <select id="ft-filter-status">
+          <option value="all">Todos los estados</option>
+          <option value="planned">Planned</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="finished">Finished</option>
+        </select>
+      </div>
 
-  <form id="create-ft-form" class="row">
-    <label>Nombre:
-      <input name="name" required />
-    </label>
+      <div class="panel-header">
+        <h3>Field Tests Existentes</h3>
+      </div>
+      <div id="ft-list" class="list bike-list-wrapper">
+        <!-- Carga dinámica -->
+      </div>
 
-    <label>Estado:
-      <select name="status">
-        <option value="planned">Planned</option>
-        <option value="active" selected>Active</option>
-        <option value="paused">Paused</option>
-        <option value="finished">Finished</option>
-      </select>
-    </label>
+      <div class="panel-header" style="margin-top: 25px;">
+        <h3>Crear Field Test</h3>
+      </div>
+      <form id="create-ft-form">
+        <div class="form-group">
+          <label>Nombre del Field Test</label>
+          <input name="name" required placeholder="Ej. Test Cataluña 2026..." />
+        </div>
+        <div class="form-group">
+          <label>Estado Inicial</label>
+          <select name="status">
+            <option value="planned">Planned</option>
+            <option value="active" selected>Active</option>
+            <option value="paused">Paused</option>
+            <option value="finished">Finished</option>
+          </select>
+        </div>
+        <button type="submit" class="primary-action" style="width: 100%; justify-content: center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Crear Field Test
+        </button>
+      </form>
+    </div>
 
-    <button type="submit">Crear</button>
-  </form>
-</div>
+    <!-- PANEL DERECHO (DETALLES Y ASIGNACIONES) -->
+    <div class="details-area">
+      
+      <!-- Placeholder por defecto -->
+      <div id="placeholder-view" class="placeholder-view">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <p>Selecciona un Field Test del listado izquierdo para gestionar sus asignaciones, ver el resumen de kilómetros y estadísticas.</p>
+      </div>
 
-<!-- ========================= -->
-<!-- FILTRO -->
-<!-- ========================= -->
-<div class="section">
-  <h3>Filtro</h3>
+      <!-- Detalle Dinámico -->
+      <div id="ft-detail-view" style="display: none;" class="panel">
+        
+        <div class="panel-header">
+          <h3 id="selected-ft-name-heading">Detalle de Field Test</h3>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <select id="selected-ft-status" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; transition: var(--transition-all);">
+              <option value="planned">Planned</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="finished">Finished</option>
+            </select>
+            <button id="delete-ft-btn" title="Eliminar Field Test">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              Eliminar
+            </button>
+          </div>
+        </div>
 
-  <label>
-    Estado:
-    <select id="ft-filter-status">
-      <option value="all">Todos</option>
-      <option value="planned">Planned</option>
-      <option value="active">Active</option>
-      <option value="paused">Paused</option>
-      <option value="finished">Finished</option>
-    </select>
-  </label>
-</div>
+        <!-- Tabla Resumen KM -->
+        <div style="margin-bottom: 30px;">
+          <div id="ft-total-km" style="margin-bottom: 15px;">
+            <!-- Inyección dinámica -->
+          </div>
 
-<!-- ========================= -->
-<!-- LISTA -->
-<!-- ========================= -->
-<div class="section">
-  <h3>Field Tests existentes</h3>
-  <div id="ft-list" class="list"></div>
-</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Código de Bici</th>
+                <th>Motor</th>
+                <th>Km Recorridos</th>
+                <th>Estado de Bici</th>
+                <th style="text-align: right;">Detalle Semanal</th>
+              </tr>
+            </thead>
+            <tbody id="ft-km-tbody">
+              <!-- Inyección dinámica -->
+            </tbody>
+          </table>
+        </div>
 
-<!-- ========================= -->
-<!-- DETALLE -->
-<!-- ========================= -->
-<div class="section">
+        <!-- Sección de Asignación de Bicicletas -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; border-top: 1px solid var(--border-color); padding-top: 25px;">
+          
+          <div>
+            <h4 style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green);"></span>
+              Bicicletas Asignadas
+            </h4>
+            <div id="bikes-assigned">
+              <!-- Inyección dinámica -->
+            </div>
+          </div>
 
-  <h3>Detalle del Field Test seleccionado</h3>
+          <div>
+            <h4 style="font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border-color);"></span>
+              Bicicletas Disponibles
+            </h4>
+            <div id="bikes-available">
+              <!-- Inyección dinámica -->
+            </div>
+          </div>
 
-  <div class="row">
-    <h4>Estado</h4>
-    <select id="selected-ft-status" disabled>
-      <option value="planned">Planned</option>
-      <option value="active">Active</option>
-      <option value="paused">Paused</option>
-      <option value="finished">Finished</option>
-    </select>
+        </div>
+
+      </div>
+
+    </div>
+
   </div>
 
-  <div class="section">
-    <button id="delete-ft-btn" disabled>Eliminar Field Test</button>
-  </div>
-
-  <!-- ================= KM SUMMARY ================= -->
-  <div class="section">
-    <h4 id="ft-total-km">Km totales: —</h4>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Bici</th>
-          <th>Motor</th>
-          <th>Km</th>
-          <th>Status</th>
-          <th>Detalle</th>
-        </tr>
-      </thead>
-      <tbody id="ft-km-tbody"></tbody>
-    </table>
-  </div>
-
-  <!-- ================= BIKES ASSIGNED ================= -->
-  <div class="section">
-    <h4>Bicis asignadas</h4>
-    <div id="bikes-assigned"></div>
-  </div>
-
-  <!-- ================= BIKES AVAILABLE ================= -->
-  <div class="section">
-    <h4>Bicis disponibles</h4>
-    <div id="bikes-available"></div>
-  </div>
-
-</div>
-
-<!-- ========================= -->
-<!-- CONTROLLER -->
-<!-- ========================= -->
-<script type="module" src="/dist/app/controllers/ft.controller.js"></script>
+  <!-- Controller compilado como MÓDULO -->
+  <script type="module" src="/dist/app/controllers/ft.controller.js"></script>
 
 </body>
 </html>

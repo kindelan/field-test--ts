@@ -1,5 +1,6 @@
 function pad2(n: string): string {
-  return n.padStart(2, "0");
+  const clean = String(parseInt(n, 10));
+  return clean.padStart(2, "0");
 }
 
 export function sanitizeBikeCode(raw: string | null): string | null {

@@ -2,9 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Importar Excel de Field Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importar Excel - Premium</title>
 
-  <!-- ✅ IMPORT MAP OBLIGATORIO -->
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- SheetJS para procesamiento de Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Supabase Import Map -->
   <script type="importmap">
   {
     "imports": {
@@ -12,37 +21,421 @@
     }
   }
   </script>
+
+  <style>
+    /* ==========================================
+       VARIABLES & BASE DESIGN SYSTEM
+       ========================================== */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      --primary-hover: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      
+      --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 30px;
+      line-height: 1.5;
+    }
+
+    /* ==========================================
+       HEADER & NAVIGATION
+       ========================================== */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+
+    .nav-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: var(--transition-all);
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+    }
+
+    .nav-link.active {
+      color: white;
+      background: var(--primary-gradient);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ==========================================
+       LAYOUT CONTAINER
+       ========================================== */
+    .app-container-single {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    /* ==========================================
+       PANELS & CARDS
+       ========================================== */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ==========================================
+       UPLOAD AREA
+       ========================================== */
+    .upload-area {
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.01);
+      transition: var(--transition-all);
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-area:hover {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.02);
+    }
+
+    #import-status {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      box-sizing: border-box;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* ==========================================
+       BUTTONS & INPUTS
+       ========================================== */
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-all);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover {
+      background: var(--border-color);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    button.primary-action {
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+    }
+
+    button.primary-action:hover {
+      background: var(--primary-hover);
+    }
+
+    button.secondary-action {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--accent-cyan);
+    }
+
+    button.secondary-action:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-cyan);
+    }
+
+    .search-filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .search-filters .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .search-filters label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    
+    .search-filters input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition-all);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .search-filters input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    /* ==========================================
+       TABLES
+       ========================================== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-md);
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: var(--transition-all);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(99, 102, 241, 0.03);
+    }
+  </style>
 </head>
+
 <body>
 
-<h1>Importar Excel de Field Test</h1>
+  <header>
+    <div class="header-left">
+      <h1>Bikes Manager</h1>
+      <nav class="nav-container">
+        <a href="/bikes.html" class="nav-link">Bicicletas</a>
+        <a href="/ft.html" class="nav-link">Field Tests</a>
+        <a href="/import.html" class="nav-link active">Importar Excel</a>
+      </nav>
+    </div>
+  </header>
 
-<form id="import-form">
-  <input type="file" id="excel-file" accept=".xlsx" required />
-  <button type="submit">Subir Excel</button>
-</form>
+  <div class="app-container-single">
+    
+    <!-- PANEL DE CARGA -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Subir Registros de Salidas</h3>
+      </div>
+      
+      <div class="upload-area" id="upload-area">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 12px;">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">Selecciona el archivo Excel (.xlsx) con los datos de las salidas</p>
+        
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: center; width: 100%;">
+          <input type="file" id="excel-file" accept=".xlsx" style="display: none;" />
+          <button id="browse-btn" onclick="document.getElementById('excel-file').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Examinar archivo
+          </button>
+          <button id="upload-btn" class="primary-action">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Subir Excel
+          </button>
+        </div>
+        <div id="file-name-display" style="margin-top: 15px; font-size: 13px; color: var(--accent-cyan); font-weight: 500;"></div>
+      </div>
 
-<div id="import-status"></div>
+      <div id="import-status">Listo para importar.</div>
+    </div>
 
-<hr>
+    <!-- TABLA DE KILÓMETROS -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Kilómetros Totales en BBDD</h3>
+      </div>
 
-<input id="filter-bike" placeholder="Filtrar bici">
-<input id="filter-motor" placeholder="Filtrar motor">
+      <div class="search-filters">
+        <div class="filter-group">
+          <label for="filter-bike">Código de Bici</label>
+          <input id="filter-bike" placeholder="Filtrar por código..." />
+        </div>
+        <div class="filter-group">
+          <label for="filter-motor">Tipo de Motor</label>
+          <input id="filter-motor" placeholder="Filtrar por motor..." />
+        </div>
+        <div class="filter-group">
+          <label for="filter-date-start">Fecha Inicio</label>
+          <input id="filter-date-start" type="date" />
+        </div>
+        <div class="filter-group">
+          <label for="filter-date-end">Fecha Fin</label>
+          <input id="filter-date-end" type="date" />
+        </div>
+      </div>
 
-<table id="summary-table">
-  <thead>
-    <tr>
-      <th>Bici</th>
-      <th>Motor</th>
-      <th>Km</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; gap: 10px;">
+        <button id="btn-clear-filters" class="secondary-action" style="padding: 6px 12px; font-size: 13px;">
+          Limpiar Filtros
+        </button>
+      </div>
 
-<script type="module">
-  import "/dist/app/controllers/import.controller.js";
-</script>
+      <table>
+        <thead>
+          <tr>
+            <th>Código de Bici</th>
+            <th>Tipo de Motor</th>
+            <th style="text-align: right;">Km Totales</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body">
+          <!-- Carga dinámica -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const fileInput = document.getElementById('excel-file');
+      const fileNameDisplay = document.getElementById('file-name-display');
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+          fileNameDisplay.textContent = `Archivo seleccionado: ${fileInput.files[0].name}`;
+        } else {
+          fileNameDisplay.textContent = '';
+        }
+      });
+    });
+  </script>
+
+  <!-- Controller compilado como MÓDULO -->
+  <script type="module">
+    import "/dist/app/controllers/import.controller.js";
+  </script>
 
 </body>
 </html>

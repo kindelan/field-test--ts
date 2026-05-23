@@ -86,26 +86,26 @@ export function renderBikeDetail(
     grid.appendChild(card);
   };
 
-  const motorDetails = bike.motortype 
-    ? `${bike.motortype} (SN: ${bike.motorcode || '—'}, FW: ${bike.motorfirmware || '—'})` 
-    : "—";
-  addMetaCard("Motor", motorDetails);
+  // Motor Component Fields
+  addMetaCard("Motor Type (Tipo)", bike.motortype);
+  addMetaCard("Motor Code (Nº Serie)", bike.motorcode);
+  addMetaCard("Motor Firmware", bike.motorfirmware);
 
-  const batteryDetails = bike.batterytype 
-    ? `${bike.batterytype} (SN: ${bike.batterycode || '—'}, FW: ${bike.batteryfirmware || '—'})` 
-    : "—";
-  addMetaCard("Batería", batteryDetails);
+  // Battery Component Fields
+  addMetaCard("Battery Type (Tipo)", bike.batterytype);
+  addMetaCard("Battery Code (Nº Serie)", bike.batterycode);
+  addMetaCard("Battery Firmware", bike.batteryfirmware);
 
-  const hmiDetails = bike.hmicode 
-    ? `SN: ${bike.hmicode} (FW: ${bike.hmifirmware || '—'})` 
-    : "—";
-  addMetaCard("HMI", hmiDetails);
+  // HMI Component Fields
+  addMetaCard("HMI Code (Nº Serie)", bike.hmicode);
+  addMetaCard("HMI Firmware", bike.hmifirmware);
 
-  addMetaCard("Ubicación", bike.location);
+  // Other Metadata Fields
+  addMetaCard("Ubicación (Location)", bike.location);
   addMetaCard("Ámbito (Scope)", bike.scope);
   addMetaCard("Objetivo (Target)", bike.target);
-  addMetaCard("Otros", bike.other);
-  addMetaCard("Comentarios", bike.comments);
+  addMetaCard("Otros (Other)", bike.other);
+  addMetaCard("Comentarios (Comments)", bike.comments);
 
   container.appendChild(grid);
 

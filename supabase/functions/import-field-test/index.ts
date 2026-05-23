@@ -42,11 +42,26 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeCompletionDate(raw: any): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const parts = s.split(/\s+/);
+  if (parts.length < 2) return s;
+  const datePart = parts[0];
+  const timePart = parts[1];
+  const timeSubparts = timePart.split(":");
+  if (timeSubparts.length >= 2) {
+    return `${datePart} ${timeSubparts[0]}:${timeSubparts[1]}`;
+  }
+  return s;
+}
+
 /* =========================================================
    SANITIZER (LOCAL, SIMPLE, SIN FILTRAR)
 ========================================================= */
 function pad2(n: string): string {
-  return n.padStart(2, "0");
+  const clean = String(parseInt(n, 10));
+  return clean.padStart(2, "0");
 }
 
 function sanitizeBikeCode(raw: string | null): string | null {
@@ -80,6 +95,11 @@ function normalizeBikeCode(raw: string | null): string | null {
   const x30 = s.match(/^X\s*30\s*(\d{1,2})?$/);
   if (x30) return x30[1] ? `X30_${pad2(x30[1])}` : "X30";
 
+  const familyNum = s.match(/^(XS|PF|PB)\s*(\d{1,3})$/);
+  if (familyNum) {
+    return `${familyNum[1]}_${pad2(familyNum[2])}`;
+  }
+
   return s.replace(/\s+/g, "_");
 }
 
@@ -106,11 +126,17 @@ serve(async (req) => {
       const bike_code_sanitized =
         normalizeBikeCode(bike_code_raw) ?? bike_code_raw;
 
+      const completion_date_txt = normalizeCompletionDate(r["Completion time"]) ?? null;
+      const ride_date_raw = r["Ride date"] ?? null;
+      const ride_date_txt = (ride_date_raw !== null && String(ride_date_raw).trim() !== "")
+        ? String(ride_date_raw).trim()
+        : completion_date_txt;
+
       return {
-        ride_date_txt: r["Ride date"] ?? null,
-        completion_date_txt: r["Completion time"] ?? null,
+        ride_date_txt,
+        completion_date_txt,
         motor_type: r["Motor type"] ?? null,
-        bike_code: bike_code_raw,
+        bike_code: bike_code_sanitized,
         bike_code_sanitized,
         distance_km: toNumber(
           r["Distance ridden"] ??
@@ -118,6 +144,7 @@ serve(async (req) => {
         ),
         elevation_m: toNumber(
           r["elevation"] ??
+          r["elevation / Desnivel positive"] ??
           r["elevation / Desnivel positivo"]
         ),
       };

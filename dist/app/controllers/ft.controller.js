@@ -1,4 +1,5 @@
 import { FieldTestService } from "../services/fieldTest.service.js";
+import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 const service = new FieldTestService();
 /* ===================================================== */
 function formatWeekYear(dateStr) {
@@ -36,10 +37,26 @@ document.addEventListener("DOMContentLoaded", () => {
         fts.forEach(ft => {
             const btn = document.createElement("button");
             btn.textContent = `${ft.name} (${ft.status})`;
+            if (selectedFTId === ft.id) {
+                btn.classList.add("active");
+            }
             btn.onclick = async () => {
+                list.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
                 selectedFTId = ft.id;
                 selectedFTName = ft.name;
+                const heading = document.getElementById("selected-ft-name-heading");
+                if (heading)
+                    heading.textContent = ft.name;
                 statusSelect.value = ft.status;
+                statusSelect.removeAttribute("disabled");
+                deleteBtn.removeAttribute("disabled");
+                const placeholder = document.getElementById("placeholder-view");
+                const detailView = document.getElementById("ft-detail-view");
+                if (placeholder)
+                    placeholder.style.display = "none";
+                if (detailView)
+                    detailView.style.display = "block";
                 await loadKmSummary();
                 await loadBikes();
             };
@@ -56,10 +73,22 @@ document.addEventListener("DOMContentLoaded", () => {
     deleteBtn.onclick = async () => {
         if (!selectedFTId)
             return;
+        if (!confirm(`¿Estás seguro de que deseas eliminar el Field Test "${selectedFTName}"?`)) {
+            return;
+        }
         await service.delete(selectedFTId);
         selectedFTId = null;
+        selectedFTName = null;
         totalEl.innerHTML = "";
         tbody.innerHTML = "";
+        statusSelect.setAttribute("disabled", "true");
+        deleteBtn.setAttribute("disabled", "true");
+        const placeholder = document.getElementById("placeholder-view");
+        const detailView = document.getElementById("ft-detail-view");
+        if (placeholder)
+            placeholder.style.display = "block";
+        if (detailView)
+            detailView.style.display = "none";
         await loadFieldTests();
     };
     /* ============================= */
@@ -93,16 +122,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const assigned = await service.getBikesAssigned(selectedFTId);
         const all = await service.getAllBikes();
         const activeIds = new Set(assigned.map(a => a.bikes.id));
+        // Agrupar res.rows por código normalizado para evitar filas duplicadas en el desglose de Field Tests
+        const groupedKm = new Map();
         res.rows.forEach(r => {
-            const bike = all.find(b => b.bikecode === r.bikecode);
+            const norm = normalizeBikeCode(r.bikecode) || r.bikecode;
+            const key = norm.toLowerCase();
+            const existing = groupedKm.get(key);
+            if (existing) {
+                existing.km += r.km;
+            }
+            else {
+                groupedKm.set(key, { bikecode: norm, km: r.km });
+            }
+        });
+        const consolidatedRows = Array.from(groupedKm.values());
+        consolidatedRows.forEach(r => {
+            const bike = all.find(b => {
+                const normB = normalizeBikeCode(b.bikecode || "")?.toLowerCase();
+                const normR = normalizeBikeCode(r.bikecode || "")?.toLowerCase();
+                return normB === normR;
+            });
             const isActive = bike && activeIds.has(bike.id);
             const tr = document.createElement("tr");
             tr.innerHTML = `
-        <td>${r.bikecode}</td>
-        <td>${bike?.motortype ?? "—"}</td>
-        <td>${r.km.toFixed(1)}</td>
-        <td>${isActive ? "Active" : "No active"}</td>
-        <td><button>Ver detalle</button></td>
+        <td>${bike?.bikecode ?? r.bikecode}</td>
+        <td>${bike?.motorcode ?? "—"}</td>
+        <td>${r.km.toFixed(1)} km</td>
+        <td>${isActive ? '<span class="status-active">Active</span>' : '<span class="status-inactive">No active</span>'}</td>
+        <td style="text-align: right;"><button class="primary-action" style="padding: 4px 8px; font-size: 12px;">Ver detalle</button></td>
       `;
             tr.querySelector("button").onclick = () => {
                 const popup = window.open("", "_blank");
@@ -111,8 +158,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 popup.document.write("<p>Cargando…</p>");
                 (async () => {
                     const data = await service.getFieldTestWeeklyKmByMotor(selectedFTId);
-                    const filtered = data.filter(d => d.bike_code === r.bikecode);
-                    renderBikePopup(popup, r.bikecode, filtered);
+                    const filtered = data.filter(d => {
+                        const normD = normalizeBikeCode(d.bike_code || "")?.toLowerCase();
+                        const normR = normalizeBikeCode(r.bikecode || "")?.toLowerCase();
+                        return normD === normR;
+                    });
+                    renderBikePopup(popup, bike?.bikecode ?? r.bikecode, filtered);
                 })();
             };
             tbody.appendChild(tr);
@@ -163,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadFieldTests();
 });
 /* ===================================================== */
-/* ✅ POPUPS OK */
+/* ✅ POPUPS OK (PREMIUM DARK AESTHETIC) */
 function renderFieldTestPopup(popup, name, data) {
     const motors = [...new Set(data.map(d => d.motor_code))];
     const totalsByMotor = motors.map(motor => {
@@ -180,60 +231,92 @@ function renderFieldTestPopup(popup, name, data) {
         }];
     popup.document.open();
     popup.document.write(`
-
 <html>
 <head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js
-  padding: 20px;
-  font-family: Arial;
-}
-
-canvas {
-  width: 100%;
-  height: 400px;
-}
-</style>
+  <meta charset="UTF-8" />
+  <title>${name}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+    }
+    body {
+      margin: 0;
+      padding: 30px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    canvas {
+      width: 100% !important;
+      height: 400px !important;
+    }
+  </style>
 </head>
-
-<style>
-body {
-  margin:0;
-  padding:20px;
-  font-family: Arial;
-}
-canvas {
-  width:100% !important;
-  height:400px !important;
-}
-</style>
-
-</head>
-
 <body>
-
-<h2>${name}</h2>
-
-<canvas id="chart"></canvas>
-
-<script>
-new Chart(document.getElementById("chart"), {
-  type: "bar",
-  data: {
-    labels: ${JSON.stringify(labels)},
-    datasets: ${JSON.stringify(dataset)}
-  }
-});
-</script>
-
+  <div class="container">
+    <h2>${name}</h2>
+    <div class="card">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+  <script>
+    new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels: ${JSON.stringify(labels)},
+        datasets: ${JSON.stringify(dataset)}
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#f3f4f6', font: { family: 'Inter' } } }
+        },
+        scales: {
+          x: { grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } },
+          y: { grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
-`);
+  `);
     popup.document.close();
 }
 async function renderBikePopup(popup, bikecode, data) {
     const weeks = [...new Set(data.map(d => d.week))].sort();
     const labels = weeks.map(w => formatWeekYear(w));
     const motors = [...new Set(data.map(d => d.motor_code))];
+    const batteries = [...new Set(data.map(d => d.battery_code))];
     const datasets = motors.map((motor, i) => ({
         label: `Motor ${motor}`,
         data: weeks.map(w => {
@@ -242,7 +325,6 @@ async function renderBikePopup(popup, bikecode, data) {
         }),
         backgroundColor: getColor(i)
     }));
-    /* ---------- RESUMEN ---------- */
     const totalKm = data.reduce((acc, r) => acc + r.km, 0);
     const kmByMotor = motors.map(m => {
         const km = data
@@ -250,168 +332,285 @@ async function renderBikePopup(popup, bikecode, data) {
             .reduce((acc, r) => acc + r.km, 0);
         return { motor: m, km };
     });
-    /* ---------- HISTÓRICO COMPLETO ---------- */
+    const kmByBattery = batteries.map(b => {
+        const km = data
+            .filter(d => d.battery_code === b)
+            .reduce((acc, r) => acc + r.km, 0);
+        return { battery: b, km };
+    });
     const allBikes = await service.getAllBikes();
-    const bike = allBikes.find(b => b.bikecode === bikecode);
-    const history = bike
-        ? await service.getBikeHistory(bike.id)
-        : [];
+    const bike = allBikes.find(b => {
+        const normB = normalizeBikeCode(b.bikecode || "")?.toLowerCase();
+        const normSearch = normalizeBikeCode(bikecode || "")?.toLowerCase();
+        return normB === normSearch;
+    });
+    const history = bike ? await service.getBikeHistory(bike.id) : [];
     const historyRows = history.map(h => `
     <tr>
       <td>${new Date(h.start_at).toLocaleDateString()}</td>
       <td>${h.component_type}</td>
       <td>${h.component_serial_code ?? "—"}</td>
       <td>${h.component_version ?? "—"}</td>
+      <td>${h.notes ?? "—"}</td>
     </tr>
   `).join("");
-    /* ---------- HTML ---------- */
+    // Extract battery changes and map them to their corresponding week labels
+    const batteryChanges = history
+        .filter(h => h.component_type === "battery")
+        .map(h => {
+        const startAtDate = new Date(h.start_at);
+        const day = startAtDate.getDay();
+        const diff = startAtDate.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(startAtDate.setDate(diff));
+        const year = monday.getFullYear();
+        const month = String(monday.getMonth() + 1).padStart(2, "0");
+        const date = String(monday.getDate()).padStart(2, "0");
+        const mondayStr = `${year}-${month}-${date}`;
+        const weekLabel = formatWeekYear(mondayStr);
+        return {
+            weekLabel,
+            serial: h.component_serial_code || "—"
+        };
+    });
     popup.document.open();
     popup.document.write(`
 <html>
 <head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body {
-  margin:0;
-  font-family: Arial;
-}
-
-.container {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  gap: 30px;
-}
-
-/* ✅ GRÁFICA FULL */
-.chart-container {
-  width: 100%;
-  height: 400px;
-}
-
-/* ✅ GRID */
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-/* ✅ CARD */
-.card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 15px;
-  background: white;
-}
-
-/* ✅ TABLA */
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 6px;
-}
-
-th {
-  background: #f5f5f5;
-}
-
-/* ✅ SCROLL HISTÓRICO */
-.history {
-  max-height: 250px;
-  overflow: auto;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-<h2>${bikecode}</h2>
-
-<!-- ✅ GRÁFICA -->
-<div class="card">
-<h3>KM por semana</h3>
-
-<div class="chart-container">
-<canvas id="chart"></canvas>
-</div>
-</div>
-
-<!-- ✅ RESUMEN -->
-<div class="grid">
-
-<div class="card">
-<h3>Resumen</h3>
-
-<p><strong>Total:</strong> ${totalKm.toFixed(1)} km</p>
-
-<table>
-<tr><th>Motor</th><th>Km</th></tr>
-${kmByMotor.map(m => `
-<tr>
-<td>${m.motor}</td>
-<td>${m.km.toFixed(1)}</td>
-</tr>
-`).join("")}
-</table>
-
-</div>
-
-<!-- ✅ HISTORICO -->
-<div class="card history">
-<h3>Histórico componentes</h3>
-
-<table>
-<tr>
-<th>Fecha</th>
-<th>Tipo</th>
-<th>Serial</th>
-<th>Versión</th>
-</tr>
-
-${historyRows || `<tr><td colspan="4">Sin datos</td></tr>`}
-
-</table>
-
-</div>
-
-</div>
-
-</div>
-
-<script>
-new Chart(document.getElementById("chart"), {
-  type: "bar",
-  data: {
-    labels: ${JSON.stringify(labels)},
-    datasets: ${JSON.stringify(datasets)}
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { stacked: true },
-      y: { stacked: true }
+  <meta charset="UTF-8" />
+  <title>Detalle Bici - ${bikecode}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-cyan: #06b6d4;
     }
-  }
-});
-</script>
+    body {
+      margin: 0;
+      padding: 30px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+    h2 {
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #06b6d4, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    .chart-container {
+      width: 100%;
+      height: 400px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .history {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Bicicleta: ${bikecode}</h2>
 
+    <div class="card">
+      <h3>KM por Semana</h3>
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Resumen</h3>
+        <p style="font-size: 15px; margin-bottom: 15px;">
+          <strong>Total general:</strong> <span style="color: var(--accent-cyan); font-weight: 600;">${totalKm.toFixed(1)} km</span>
+        </p>
+        <div style="display: flex; gap: 20px;">
+          <div style="flex: 1;">
+            <h4 style="margin-top: 0; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Motores</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Motor</th>
+                  <th>Km</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${kmByMotor.map(m => `
+                  <tr>
+                    <td>${m.motor}</td>
+                    <td>${m.km.toFixed(1)} km</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div style="flex: 1;">
+            <h4 style="margin-top: 0; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px;">Baterías</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Batería</th>
+                  <th>Km</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${kmByBattery.map(b => `
+                  <tr>
+                    <td>${b.battery}</td>
+                    <td>${b.km.toFixed(1)} km</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card history">
+        <h3>Histórico de Componentes</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Serial</th>
+              <th>Versión</th>
+              <th>Comentarios</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historyRows || `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Sin componentes registrados</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const batteryChanges = ${JSON.stringify(batteryChanges)};
+
+    const batteryLinesPlugin = {
+      id: "batteryLines",
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+        ctx.save();
+        
+        batteryChanges.forEach(change => {
+          const idx = chart.data.labels.indexOf(change.weekLabel);
+          if (idx !== -1) {
+            const xPos = x.getPixelForValue(change.weekLabel);
+            if (xPos >= left && xPos <= right) {
+              // Draw dashed line
+              ctx.strokeStyle = "#f59e0b"; // amber/orange
+              ctx.lineWidth = 1.5;
+              ctx.setLineDash([5, 5]);
+              ctx.beginPath();
+              ctx.moveTo(xPos, top);
+              ctx.lineTo(xPos, bottom);
+              ctx.stroke();
+
+              // Draw vertical text label
+              ctx.fillStyle = "#f59e0b";
+              ctx.font = "bold 10px sans-serif";
+              ctx.textBaseline = "bottom";
+              ctx.textAlign = "center";
+              ctx.setLineDash([]); // Reset dash for text
+              ctx.fillText("🔋 Batería: " + change.serial, xPos, top - 8);
+            }
+          }
+        });
+        
+        ctx.restore();
+      }
+    };
+
+    new Chart(document.getElementById("chart"), {
+      type: "bar",
+      plugins: [batteryLinesPlugin],
+      data: {
+        labels: ${JSON.stringify(labels)},
+        datasets: ${JSON.stringify(datasets)}
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#f3f4f6', font: { family: 'Inter' } } }
+        },
+        scales: {
+          x: { stacked: true, grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } },
+          y: { stacked: true, grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
-`);
+  `);
     popup.document.close();
 }
 function getColor(i) {
-    const colors = ["#4CAF50", "#2196F3", "#FF9800", "#E91E63", "#9C27B0"];
+    const colors = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
     return colors[i % colors.length];
 }
 function simpleMotorPopup(popup, data) {
@@ -427,76 +626,141 @@ function simpleMotorPopup(popup, data) {
     popup.document.write(`
 <html>
 <head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body { font-family: Arial; padding:20px; }
-
-.container {
-  display:flex;
-  flex-direction:column;
-  gap:20px;
-}
-
-.chart {
-  height:350px;
-}
-
-table {
-  width:100%;
-  border-collapse:collapse;
-}
-th, td {
-  border:1px solid #ccc;
-  padding:6px;
-}
-th { background:#f5f5f5; }
-</style>
-
+  <meta charset="UTF-8" />
+  <title>KM por Motor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-cyan: #06b6d4;
+    }
+    body {
+      margin: 0;
+      padding: 30px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #06b6d4, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    .chart {
+      height: 350px;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+  </style>
 </head>
-
 <body>
-<div class="container">
+  <div class="container">
+    <h2>KM por Motor</h2>
+    <div class="card">
+      <div class="chart">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>Resumen por Motores</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Motor</th>
+            <th>KM Acumulados</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${totals.map(m => `
+            <tr>
+              <td>${m.motor}</td>
+              <td>${m.km.toFixed(1)} km</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-<h2>KM por motor</h2>
-
-<div class="chart">
-  <canvas id="chart"></canvas>
-</div>
-
-<h3>Resumen</h3>
-
-<table>
-<tr><th>Motor</th><th>KM</th></tr>
-
-${totals.map(m => `
-<tr>
-<td>${m.motor}</td>
-<td>${m.km.toFixed(1)}</td>
-</tr>
-`).join("")}
-
-</table>
-
-</div>
-
-<script>
-new Chart(document.getElementById("chart"), {
-  type: "bar",
-  data: {
-    labels: ${JSON.stringify(totals.map(x => x.motor))},
-    datasets: [{
-      label: "KM",
-      data: ${JSON.stringify(totals.map(x => x.km))}
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false
-  }
-});
-</script>
-
+  <script>
+    new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels: ${JSON.stringify(totals.map(x => x.motor))},
+        datasets: [{
+          label: "KM",
+          data: ${JSON.stringify(totals.map(x => x.km))},
+          backgroundColor: ${JSON.stringify(totals.map((_, i) => getColor(i)))}
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: { grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } },
+          y: { grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
   `);
@@ -508,80 +772,141 @@ function simpleBikePopup(popup, rows) {
     popup.document.write(`
 <html>
 <head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body { font-family: Arial; padding:20px; }
-
-.container {
-  display:flex;
-  flex-direction:column;
-  gap:20px;
-}
-
-.chart {
-  height:350px;
-}
-
-table {
-  width:100%;
-  border-collapse:collapse;
-}
-th, td {
-  border:1px solid #ccc;
-  padding:6px;
-}
-th { background:#f5f5f5; }
-</style>
-
-</head>
-
-<body>
-<div class="container">
-
-<h2>KM por bici</h2>
-
-<div class="chart">
-  <canvas id="chart"></canvas>
-</div>
-
-<h3>Resumen</h3>
-
-<table>
-<tr><th>Bici</th><th>KM</th></tr>
-
-${sorted.map(b => `
-<tr>
-<td>${b.bikecode}</td>
-<td>${b.km.toFixed(1)}</td>
-</tr>
-`).join("")}
-
-</table>
-
-</div>
-
-<script>
-new Chart(document.getElementById("chart"), {
-  type: "bar",
-  data: {
-    labels: ${JSON.stringify(sorted.map(x => x.bikecode))},
-    datasets: [{
-      label: "KM",
-      data: ${JSON.stringify(sorted.map(x => x.km))}
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    
-    scales: {
-      x: { ticks: { autoSkip: false } }
+  <meta charset="UTF-8" />
+  <title>KM por Bici</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-cyan: #06b6d4;
     }
-  }
-});
-</script>
+    body {
+      margin: 0;
+      padding: 30px;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #06b6d4, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    .chart {
+      height: 350px;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>KM por Bici</h2>
+    <div class="card">
+      <div class="chart">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
 
+    <div class="card">
+      <h3>Resumen por Bicicletas</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Bici</th>
+            <th>KM Acumulados</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sorted.map(b => `
+            <tr>
+              <td>${b.bikecode}</td>
+              <td>${b.km.toFixed(1)} km</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels: ${JSON.stringify(sorted.map(x => x.bikecode))},
+        datasets: [{
+          label: "KM",
+          data: ${JSON.stringify(sorted.map(x => x.km))},
+          backgroundColor: ${JSON.stringify(sorted.map((_, i) => getColor(i)))}
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: { ticks: { autoSkip: false, color: '#9ca3af', font: { family: 'Inter' } }, grid: { color: '#222e45' } },
+          y: { grid: { color: '#222e45' }, ticks: { color: '#9ca3af', font: { family: 'Inter' } } }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
   `);

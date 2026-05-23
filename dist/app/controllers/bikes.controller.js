@@ -1,5 +1,6 @@
 import { BikesService } from "../services/bikes.service.js";
 import { renderBikeList, renderBikeDetail, renderEditForm, renderBikeHistory, renderChangeComponentForm } from "./bikes.ui.js";
+import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 const service = new BikesService();
 async function main() {
     /* =============================
@@ -10,6 +11,7 @@ async function main() {
     const form = document.getElementById("bike-form");
     const history = document.getElementById("bike-history");
     const placeholder = document.getElementById("placeholder-view");
+    let allBikes = [];
     let currentSelectedId = null;
     /* =============================
        SELECCIÓN DE BICI
@@ -39,11 +41,26 @@ async function main() {
         refreshListHighlight();
     }
     /* =============================
+       RENDERIZADO FILTRADO DE LISTA
+    ============================= */
+    function renderFilteredList() {
+        const searchCode = document.getElementById("search-bike-code")?.value.toLowerCase() || "";
+        const searchMotor = document.getElementById("search-motor-type")?.value.toLowerCase() || "";
+        const filtered = allBikes.filter(b => {
+            const normBike = normalizeBikeCode(b.bikecode || "")?.toLowerCase() || "";
+            const normSearch = normalizeBikeCode(searchCode)?.toLowerCase() || "";
+            const matchesCode = normBike.includes(normSearch) || (b.bikecode || "").toLowerCase().includes(searchCode);
+            const matchesMotor = (b.motortype || "").toLowerCase().includes(searchMotor);
+            return matchesCode && matchesMotor;
+        });
+        renderBikeList(filtered, list, onSelectBike, currentSelectedId);
+    }
+    /* =============================
        ACTUALIZAR RESALTADO DE LISTA
     ============================= */
     async function refreshListHighlight() {
-        const bikes = await service.list();
-        renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+        allBikes = await service.list();
+        renderFilteredList();
     }
     /* =============================
        REFRESH GENERAL
@@ -52,10 +69,10 @@ async function main() {
         if (selectedId !== undefined) {
             currentSelectedId = selectedId;
         }
-        const bikes = await service.list();
-        renderBikeList(bikes, list, onSelectBike, currentSelectedId);
+        allBikes = await service.list();
+        renderFilteredList();
         if (currentSelectedId) {
-            const b = bikes.find(x => x.id === currentSelectedId);
+            const b = allBikes.find(x => x.id === currentSelectedId);
             if (b) {
                 showDetail(b);
             }
@@ -103,8 +120,8 @@ async function main() {
                         componentType: componentType,
                         componentTypeCode: data.type,
                         componentSerialCode: data.code,
-                        componentVersion: data.fw ?? null,
-                        notes: data.notes ?? null
+                        componentVersion: data.fw !== undefined && data.fw !== null ? data.fw : null,
+                        notes: data.notes !== undefined && data.notes !== null ? data.notes : null
                     });
                     await refresh(bike.id);
                 }, () => {
@@ -131,9 +148,10 @@ async function main() {
                 return;
             }
             try {
+                const norm = normalizeBikeCode(bikecode);
                 const newBike = await service.create({
                     bikecode,
-                    bikecode_canon: bikecode.toLowerCase(),
+                    bikecode_canon: norm ? norm.toLowerCase() : bikecode.toLowerCase(),
                     location: null,
                     scope: null,
                     target: null,
@@ -156,6 +174,17 @@ async function main() {
                 alert("Error creando bici");
             }
         };
+    }
+    /* =============================
+       BUSCADOR / FILTROS
+    ============================= */
+    const searchCodeInput = document.getElementById("search-bike-code");
+    const searchMotorInput = document.getElementById("search-motor-type");
+    if (searchCodeInput) {
+        searchCodeInput.addEventListener("input", renderFilteredList);
+    }
+    if (searchMotorInput) {
+        searchMotorInput.addEventListener("input", renderFilteredList);
     }
     /* =============================
        INIT

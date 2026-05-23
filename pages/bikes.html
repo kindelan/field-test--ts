@@ -75,6 +75,13 @@
       gap: 20px;
     }
 
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
     h1 {
       font-size: 28px;
       font-weight: 700;
@@ -82,6 +89,34 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       letter-spacing: -0.025em;
+    }
+
+    .nav-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: var(--transition-all);
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+    }
+
+    .nav-link.active {
+      color: white;
+      background: var(--primary-gradient);
+      box-shadow: var(--shadow-md);
     }
 
     .creator-panel {
@@ -482,11 +517,30 @@
       display: block;
     }
 
-    .no-history-placeholder {
-      color: var(--text-secondary);
+    .search-filters {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .search-filters input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      border-radius: 8px;
       font-size: 13px;
-      text-align: center;
-      padding: 20px;
+      outline: none;
+      transition: var(--transition-all);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .search-filters input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
     }
   </style>
 </head>
@@ -494,7 +548,14 @@
 <body>
 
   <header>
-    <h1>Bikes Manager</h1>
+    <div class="header-left">
+      <h1>Bikes Manager</h1>
+      <nav class="nav-container">
+        <a href="/bikes.html" class="nav-link active">Bicicletas</a>
+        <a href="/ft.html" class="nav-link">Field Tests</a>
+        <a href="/import.html" class="nav-link">Importar Excel</a>
+      </nav>
+    </div>
     
     <div class="creator-panel">
       <input id="new-bike-code" placeholder="Código de la bici..." />
@@ -511,6 +572,10 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Bicicletas</h3>
+      </div>
+      <div class="search-filters">
+        <input id="search-bike-code" placeholder="Filtrar por código de bici..." />
+        <input id="search-motor-type" placeholder="Filtrar por tipo de motor..." />
       </div>
       <div id="bikes-list">
         <!-- Carga dinámica -->

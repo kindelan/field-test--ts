@@ -14,11 +14,11 @@ export function renderBikeList(bikes, container, onSelect, selectedId) {
         card.innerHTML = `
       <div class="bike-item-header">
         <span class="bike-item-code">${b.bikecode}</span>
-        <span class="bike-item-badge ${b.location ? 'has-loc' : 'no-loc'}">${b.location ?? "Sin loc."}</span>
+        <span class="bike-item-badge ${b.location ? 'has-loc' : 'no-loc'}">${b.location || "Sin loc."}</span>
       </div>
       <div class="bike-item-details">
-        <span>Motor: <strong>${b.motortype ?? "—"}</strong></span>
-        <span>Scope: <strong>${b.scope ?? "—"}</strong></span>
+        <span>Motor: <strong>${b.motortype || "—"}</strong></span>
+        <span>Scope: <strong>${b.scope || "—"}</strong></span>
       </div>
     `;
         card.onclick = () => onSelect(b);
@@ -56,23 +56,23 @@ export function renderBikeDetail(bike, container, actions) {
     `;
         grid.appendChild(card);
     };
-    const motorDetails = bike.motortype
-        ? `${bike.motortype} (SN: ${bike.motorcode ?? '—'}, FW: ${bike.motorfirmware ?? '—'})`
-        : "—";
-    addMetaCard("Motor", motorDetails);
-    const batteryDetails = bike.batterytype
-        ? `${bike.batterytype} (SN: ${bike.batterycode ?? '—'}, FW: ${bike.batteryfirmware ?? '—'})`
-        : "—";
-    addMetaCard("Batería", batteryDetails);
-    const hmiDetails = bike.hmicode
-        ? `SN: ${bike.hmicode} (FW: ${bike.hmifirmware ?? '—'})`
-        : "—";
-    addMetaCard("HMI", hmiDetails);
-    addMetaCard("Ubicación", bike.location);
+    // Motor Component Fields
+    addMetaCard("Motor Type (Tipo)", bike.motortype);
+    addMetaCard("Motor Code (Nº Serie)", bike.motorcode);
+    addMetaCard("Motor Firmware", bike.motorfirmware);
+    // Battery Component Fields
+    addMetaCard("Battery Type (Tipo)", bike.batterytype);
+    addMetaCard("Battery Code (Nº Serie)", bike.batterycode);
+    addMetaCard("Battery Firmware", bike.batteryfirmware);
+    // HMI Component Fields
+    addMetaCard("HMI Code (Nº Serie)", bike.hmicode);
+    addMetaCard("HMI Firmware", bike.hmifirmware);
+    // Other Metadata Fields
+    addMetaCard("Ubicación (Location)", bike.location);
     addMetaCard("Ámbito (Scope)", bike.scope);
     addMetaCard("Objetivo (Target)", bike.target);
-    addMetaCard("Otros", bike.other);
-    addMetaCard("Comentarios", bike.comments);
+    addMetaCard("Otros (Other)", bike.other);
+    addMetaCard("Comentarios (Comments)", bike.comments);
     container.appendChild(grid);
     // Actions group
     const actionGroup = document.createElement("div");
@@ -137,7 +137,7 @@ export function renderEditForm(bike, container, onSubmit, onClose) {
             input = document.createElement("input");
         }
         input.placeholder = f.placeholder;
-        input.value = bike[f.key] ?? "";
+        input.value = bike[f.key] || "";
         inputs[f.key] = input;
         group.appendChild(label);
         group.appendChild(input);
@@ -161,7 +161,7 @@ export function renderEditForm(bike, container, onSubmit, onClose) {
         const changes = {};
         for (const k in inputs) {
             const val = inputs[k].value.trim();
-            if (val !== (bike[k] ?? "")) {
+            if (val !== (bike[k] || "")) {
                 changes[k] = val || null;
             }
         }
@@ -211,24 +211,24 @@ export function renderChangeComponentForm(bike, container, componentType, onSubm
     let curCode = "";
     let curFw = "";
     if (componentType === "motor") {
-        curType = bike.motortype ?? "";
-        curCode = bike.motorcode ?? "";
-        curFw = bike.motorfirmware ?? "";
+        curType = bike.motortype || "";
+        curCode = bike.motorcode || "";
+        curFw = bike.motorfirmware || "";
     }
     else if (componentType === "battery") {
-        curType = bike.batterytype ?? "";
-        curCode = bike.batterycode ?? "";
-        curFw = bike.batteryfirmware ?? "";
+        curType = bike.batterytype || "";
+        curCode = bike.batterycode || "";
+        curFw = bike.batteryfirmware || "";
     }
     else if (componentType === "hmi") {
-        curCode = bike.hmicode ?? "";
-        curFw = bike.hmifirmware ?? "";
+        curCode = bike.hmicode || "";
+        curFw = bike.hmifirmware || "";
     }
     else if (componentType === "other") {
         if (bike.other && bike.other.includes("/")) {
             const parts = bike.other.split("/");
-            curType = parts[0] ?? "";
-            curCode = parts[1] ?? "";
+            curType = parts[0] || "";
+            curCode = parts[1] || "";
         }
     }
     let typeInput = null;
@@ -337,7 +337,7 @@ export function renderBikeHistory(history, container, onClose) {
                     fieldLabel = "Objetivo";
                 else if (field === "comments")
                     fieldLabel = "Comentarios";
-                detailsHTML += `<div><strong>${fieldLabel}:</strong> <span style="text-decoration: line-through; opacity: 0.6;">${change.old ?? '—'}</span> ➔ <span>${change.new ?? '—'}</span></div>`;
+                detailsHTML += `<div><strong>${fieldLabel}:</strong> <span style="text-decoration: line-through; opacity: 0.6;">${change.old || '—'}</span> ➔ <span>${change.new || '—'}</span></div>`;
             }
             detailsDiv.innerHTML = detailsHTML;
             item.appendChild(detailsDiv);
