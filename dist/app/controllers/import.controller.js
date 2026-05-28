@@ -1,29 +1,37 @@
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+/* ======================================================
+   HELPERS
+====================================================== */
+function safeLower(val) {
+    return (val ?? "").toString().toLowerCase();
+}
+// ✅ CLAVE: normalización única
+function normBike(val) {
+    return safeLower(normalizeBikeCode(val) ?? val ?? "");
+}
 function parseRideDate(dateStr) {
     if (!dateStr)
         return null;
     const cleaned = dateStr.trim();
-    // YYYY-MM-DD format
     if (/^\d{4}-\d{1,2}-\d{1,2}/.test(cleaned)) {
         const d = new Date(cleaned);
         return isNaN(d.getTime()) ? null : d;
     }
-    // M/D/YY or M/D/YYYY format (e.g. "4/18/26 16:31:35")
     const slashParts = cleaned.split(/\s+/)[0].split("/");
     if (slashParts.length === 3) {
         const month = parseInt(slashParts[0], 10) - 1;
         const day = parseInt(slashParts[1], 10);
         let year = parseInt(slashParts[2], 10);
-        if (year < 100) {
+        if (year < 100)
             year += 2000;
-        }
         const d = new Date(year, month, day);
         return isNaN(d.getTime()) ? null : d;
     }
     const d = new Date(cleaned);
     return isNaN(d.getTime()) ? null : d;
 }
+/* ====================================================== */
 document.addEventListener("DOMContentLoaded", () => {
     const fileInput = document.getElementById("excel-file");
     const uploadBtn = document.getElementById("upload-btn");
@@ -36,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBody = document.getElementById("summary-body");
     let rides = [];
     let uploadedBikeCodes = null;
-    // Creamos contenedor para el botón de limpiar filtros dinámicamente si no existe
+    /* ====================================================== */
     const clearFilterBtn = document.createElement("button");
     clearFilterBtn.className = "secondary-action";
     clearFilterBtn.style.display = "none";
@@ -60,34 +68,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         return dist;
     }
+    /* ====================================================== */
     function renderTable() {
-        const bikeFilter = filterBike.value.trim().toLowerCase();
-        const motorFilter = filterMotor.value.trim().toLowerCase();
-        const dateStartVal = filterDateStart.value;
-        const dateEndVal = filterDateEnd.value;
-        const start = dateStartVal ? new Date(dateStartVal + "T00:00:00") : null;
-        const end = dateEndVal ? new Date(dateEndVal + "T23:59:59") : null;
+        const bikeFilter = safeLower(filterBike.value);
+        const motorFilter = safeLower(filterMotor.value);
+        const start = filterDateStart.value ? new Date(filterDateStart.value + "T00:00:00") : null;
+        const end = filterDateEnd.value ? new Date(filterDateEnd.value + "T23:59:59") : null;
         tableBody.innerHTML = "";
-        // 1. Filtrar las salidas individuales
         const filteredRides = rides.filter(r => {
-            const normCode = normalizeBikeCode(r.bike_code) || r.bike_code;
-            // Filtro por código de bicicleta
-            if (bikeFilter && !normCode.toLowerCase().includes(bikeFilter) && !r.bike_code.toLowerCase().includes(bikeFilter)) {
+            const bikeNorm = normBike(r.bike_code);
+            const rawBike = safeLower(r.bike_code);
+            const motor = safeLower(r.motor_type);
+            if (bikeFilter && !bikeNorm.includes(bikeFilter) && !rawBike.includes(bikeFilter)) {
                 return false;
             }
-            // Filtro por tipo de motor
-            const motorType = r.motor_type || "";
-            if (motorFilter && !motorType.toLowerCase().includes(motorFilter)) {
+            if (motorFilter && !motor.includes(motorFilter)) {
                 return false;
             }
-            // Filtro de subida (si aplica)
-            if (uploadedBikeCodes) {
-                const norm = normalizeBikeCode(r.bike_code);
-                if (!norm || !uploadedBikeCodes.has(norm.toLowerCase())) {
-                    return false;
-                }
+            if (uploadedBikeCodes && !uploadedBikeCodes.has(bikeNorm)) {
+                return false;
             }
-            // Filtro por rango de fechas
             const rideDate = parseRideDate(r.completion_date_txt);
             if (rideDate) {
                 if (start && rideDate < start)
@@ -96,32 +96,29 @@ document.addEventListener("DOMContentLoaded", () => {
                     return false;
             }
             else if (start || end) {
-                // Excluir registros sin fecha válida si hay filtro activo de fecha
                 return false;
             }
             return true;
         });
-        // 2. Agrupar y consolidar distancias
+        /* ============================= */
         const groupedRows = new Map();
         filteredRides.forEach(r => {
-            const normCode = normalizeBikeCode(r.bike_code) || r.bike_code;
-            const motorType = r.motor_type || "—";
-            const key = `${normCode.toLowerCase()}|${motorType.toLowerCase()}`;
+            const bikeNorm = normBike(r.bike_code);
+            const motor = safeLower(r.motor_type ?? "—");
+            const key = `${bikeNorm}|${motor}`;
             const dist = correctDistance(Number(r.distance_km || 0));
-            const existing = groupedRows.get(key);
-            if (existing) {
-                existing.total_distance_km += dist;
+            if (groupedRows.has(key)) {
+                groupedRows.get(key).total_distance_km += dist;
             }
             else {
                 groupedRows.set(key, {
-                    bike_code: normCode,
-                    motor_type: motorType,
+                    bike_code: r.bike_code ?? "—",
+                    motor_type: r.motor_type ?? "—",
                     total_distance_km: dist
                 });
             }
         });
         const groupedArray = Array.from(groupedRows.values());
-        // 3. Renderizar en la tabla
         groupedArray.forEach(r => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -133,14 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
             tableBody.appendChild(tr);
         });
-        if (uploadedBikeCodes) {
-            clearFilterBtn.style.display = "inline-block";
-        }
-        else {
-            clearFilterBtn.style.display = "none";
-        }
+        clearFilterBtn.style.display = uploadedBikeCodes ? "inline-block" : "none";
     }
-    // Listeners de filtros
+    /* ====================================================== */
     filterBike.addEventListener("input", renderTable);
     filterMotor.addEventListener("input", renderTable);
     filterDateStart.addEventListener("change", renderTable);
@@ -155,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statusDiv.textContent = "Filtros limpiados. Mostrando todas las bicicletas.";
         renderTable();
     });
+    /* ====================================================== */
     async function loadRidesFromDB() {
         let all = [];
         let start = 0;
@@ -165,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 .range(start, start + 999);
             if (error) {
                 console.error(error);
-                statusDiv.textContent = "❌ Error cargando datos de la BBDD";
+                statusDiv.textContent = "❌ Error cargando datos";
                 rides = [];
                 renderTable();
                 return;
@@ -180,6 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
         rides = all;
         renderTable();
     }
+    /* ====================================================== */
     uploadBtn.addEventListener("click", async () => {
         const file = fileInput.files?.[0];
         if (!file)
@@ -193,24 +187,12 @@ document.addEventListener("DOMContentLoaded", () => {
             raw: false,
             defval: null
         });
-        // Guardar los códigos de bicicleta del Excel para filtrar la tabla después
         uploadedBikeCodes = new Set();
         excelRows.forEach((r) => {
-            const bikeCodeRaw = r["Bike Code"] ?? r["Bike code2"];
-            if (bikeCodeRaw) {
-                const norm = normalizeBikeCode(String(bikeCodeRaw));
-                if (norm) {
-                    uploadedBikeCodes.add(norm.toLowerCase());
-                }
-            }
-        });
-        // Guardar estado previo de kilómetros por bici/motor para calcular diferencias
-        const preTotals = new Map();
-        rides.forEach(r => {
-            const norm = normalizeBikeCode(r.bike_code) || r.bike_code;
-            const motorType = r.motor_type || "—";
-            const key = `${norm.toLowerCase()}|${motorType.toLowerCase()}`;
-            preTotals.set(key, (preTotals.get(key) || 0) + correctDistance(Number(r.distance_km || 0)));
+            const raw = r["Bike Code"] ?? r["Bike code2"];
+            const norm = normBike(raw);
+            if (norm)
+                uploadedBikeCodes.add(norm);
         });
         const { data: result, error } = await supabase.functions.invoke("import-field-test", { body: excelRows });
         if (error) {
@@ -220,37 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         fileInput.value = "";
-        // Recargar datos individuales y calcular la diferencia por bici
         await loadRidesFromDB();
-        const postTotals = new Map();
-        rides.forEach(r => {
-            const norm = normalizeBikeCode(r.bike_code) || r.bike_code;
-            const motorType = r.motor_type || "—";
-            const key = `${norm.toLowerCase()}|${motorType.toLowerCase()}`;
-            postTotals.set(key, (postTotals.get(key) || 0) + correctDistance(Number(r.distance_km || 0)));
-        });
-        const deltas = [];
-        postTotals.forEach((kmNew, key) => {
-            const kmOld = preTotals.get(key) || 0;
-            const diff = kmNew - kmOld;
-            if (diff > 0.05) {
-                const [bike, motor] = key.split("|");
-                // Buscar el caso original registrado para mantener la estética
-                const originalBike = rides.find(r => (normalizeBikeCode(r.bike_code) || r.bike_code).toLowerCase() === bike)?.bike_code || bike;
-                const originalMotor = rides.find(r => (r.motor_type || "").toLowerCase() === motor)?.motor_type || motor;
-                deltas.push(`${originalBike} (${originalMotor}): +${diff.toFixed(1)} km`);
-            }
-        });
-        let deltaMsg = "";
-        if (deltas.length > 0) {
-            deltaMsg = `<div style="margin-top: 8px; font-size: 13px; font-weight: normal; color: var(--accent-cyan);">` +
-                `<strong>Crecimiento de kilómetros:</strong> ${deltas.join(', ')}` +
-                `</div>`;
-        }
-        statusDiv.innerHTML =
-            `<div><strong>¡Excel importado correctamente!</strong></div>` +
-                `<div style="margin-top: 5px; font-size: 13px;">Registros nuevos insertados: <strong style="color: var(--accent-green);">${result.inserted}</strong> (de ${result.attempted} procesados).</div>` +
-                `${deltas.length > 0 ? deltaMsg : '<div style="margin-top: 5px; font-size: 13px; color: var(--text-secondary);">No se registraron nuevos kilómetros.</div>'}`;
+        statusDiv.textContent = `✅ Importado (${result?.inserted ?? 0})`;
     });
     loadRidesFromDB();
 });
