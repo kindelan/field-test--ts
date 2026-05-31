@@ -19,6 +19,8 @@ http.createServer((req, res) => {
     filePath = './pages/ft.html';
   } else if (cleanUrl === '/import' || cleanUrl === '/import.html') {
     filePath = './pages/import.html';
+  } else if (cleanUrl === '/form' || cleanUrl === '/form.html') {
+    filePath = './pages/form.html';
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();

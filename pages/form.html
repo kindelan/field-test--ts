@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rider Field Test Review - Premium</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    }
+  }
+  </script>
+
+  <style>
+    /* ==========================================
+       VARIABLES & BASE DESIGN SYSTEM
+       ========================================== */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      --primary-hover: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      
+      --transition-all: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --border-radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 30px;
+      line-height: 1.5;
+    }
+
+    /* ==========================================
+       HEADER & NAVIGATION
+       ========================================== */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+
+    .nav-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: var(--transition-all);
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-link.active {
+      color: var(--text-primary);
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    /* ==========================================
+       FORM CONTAINER & STEPS
+       ========================================== */
+    .form-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .form-header {
+      padding: 30px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .form-header h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .form-header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* TABS */
+    .form-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 150px;
+      padding: 15px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: var(--transition-all);
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom-color: #6366f1;
+    }
+
+    /* FORM CONTENT */
+    .form-body {
+      padding: 30px;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* GRID & INPUTS */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px 30px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: var(--transition-all);
+    }
+
+    .form-group.full-width {
+      grid-column: span 2;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    label .required {
+      color: var(--accent-red);
+      margin-left: 3px;
+    }
+
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-primary);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      transition: var(--transition-all);
+      outline: none;
+      width: 100%;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    input:disabled, select:disabled, textarea:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    /* RADIO OPTION CARDS */
+    .radio-card-group {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .radio-card-group.three-cols {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .radio-card-group.two-cols {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .radio-card {
+      position: relative;
+    }
+
+    .radio-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .radio-card-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition-all);
+      text-align: center;
+      height: 100%;
+    }
+
+    .radio-card:hover .radio-card-label {
+      color: var(--text-primary);
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .radio-card input[type="radio"]:checked + .radio-card-label {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: #6366f1;
+      color: var(--text-primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .radio-card input[type="radio"]:disabled + .radio-card-label {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: var(--border-color);
+    }
+
+    /* DYNAMIC CONTENT FADE OUT */
+    .dynamic-disabled-field {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* RESOLVED MOTOR PREVIEW */
+    .motor-preview-box {
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px dashed rgba(99, 102, 241, 0.3);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .motor-preview-box span {
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    /* FOOTER & BUTTONS */
+    .form-footer {
+      padding: 20px 30px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition-all);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* ALERTS */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-info {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      color: var(--accent-cyan);
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+    }
+
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+    }
+
+    /* STAR RATING */
+    .star-rating {
+      display: flex;
+      gap: 8px;
+      font-size: 24px;
+    }
+
+    .star-rating .star {
+      cursor: pointer;
+      color: var(--bg-input);
+      transition: var(--transition-all);
+    }
+
+    .star-rating .star:hover,
+    .star-rating .star.active {
+      color: var(--accent-amber);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+      .form-header {
+        padding: 20px 15px;
+      }
+      .form-body {
+        padding: 20px 15px;
+      }
+      .form-footer {
+        padding: 15px;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      .form-group.full-width {
+        grid-column: span 1;
+      }
+      .radio-card-group,
+      .radio-card-group.three-cols,
+      .radio-card-group.two-cols {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>Bikes Manager</h1>
+      <nav class="nav-container">
+        <a href="/bikes.html" class="nav-link">Bicicletas</a>
+        <a href="/ft.html" class="nav-link">Field Tests</a>
+        <a href="/import.html" class="nav-link">Importar Excel</a>
+        <a href="/form.html" class="nav-link active">Rider Review</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="form-container">
+    <div class="form-header">
+      <h2>Rider Field Test Review</h2>
+      <p>Please enter your ride data and your feedback about the motor performance.</p>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="form-tabs">
+      <button type="button" class="tab-btn active" data-target="tab-personal">👤 Personal Data</button>
+      <button type="button" class="tab-btn" data-target="tab-telemetry">🚴 Telemetry</button>
+      <button type="button" class="tab-btn" data-target="tab-motor">⚙️ Motor Feel</button>
+      <button type="button" class="tab-btn" data-target="tab-terrain">🗺️ Terrains & Auto</button>
+    </div>
+
+    <form id="rider-review-form">
+      <div class="form-body">
+        
+        <div id="form-status"></div>
+
+        <!-- TAB 1: PERSONAL DATA -->
+        <div id="tab-personal" class="tab-content active">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="rider-name">Full Name <span class="required">*</span></label>
+              <input type="text" id="rider-name" placeholder="E.g. Ignacio Perez" required />
+            </div>
+
+            <div class="form-group">
+              <label for="field-test">Field Test <span class="required">*</span></label>
+              <select id="field-test" required>
+                <option value="" disabled selected>Loading field tests...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="rider-email">Email Address</label>
+              <input type="email" id="rider-email" placeholder="E.g. ignacio@example.com" />
+            </div>
+            
+            <div class="form-group full-width">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 10px;">
+                * Required fields. Please click the <strong>Telemetry</strong> tab to continue.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: TELEMETRY -->
+        <div id="tab-telemetry" class="tab-content">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="ride-date">Ride Date <span class="required">*</span></label>
+              <input type="date" id="ride-date" required />
+            </div>
+
+            <div class="form-group">
+              <label for="bike-code">Bike Code <span class="required">*</span></label>
+              <select id="bike-code" required disabled>
+                <option value="" disabled selected>Select a Field Test first in Tab 1...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Resolved Motor Type</label>
+              <div class="motor-preview-box">
+                <span>Motor:</span>
+                <span id="resolved-motor-type">—</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="distance-km">Distance Ridden (km - DO NOT USE DECIMALS) <span class="required">*</span></label>
+              <input type="number" id="distance-km" min="1" step="1" placeholder="E.g. 45" required />
+            </div>
+
+            <div class="form-group">
+              <label for="elevation-m">Elevation / Desnivel positivo (m - DO NOT USE DECIMALS) <span class="required">*</span></label>
+              <input type="number" id="elevation-m" min="0" step="1" placeholder="E.g. 850" required />
+            </div>
+
+            <div class="form-group">
+              <label for="initial-battery">Initial Battery (%) <span class="required">*</span></label>
+              <input type="number" id="initial-battery" min="0" max="100" placeholder="E.g. 100" required />
+            </div>
+
+            <div class="form-group">
+              <label for="final-battery">Final Battery (%) <span class="required">*</span></label>
+              <input type="number" id="final-battery" min="0" max="100" placeholder="E.g. 15" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: MOTOR -->
+        <div id="tab-motor" class="tab-content">
+          <div class="form-grid">
+            
+            <div class="form-group">
+              <label>Motor Start Up <span class="required">*</span></label>
+              <div class="radio-card-group">
+                <div class="radio-card">
+                  <input type="radio" id="startup-smooth" name="motor-startup" value="Smooth" checked />
+                  <label class="radio-card-label" for="startup-smooth">Smooth</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="startup-inter" name="motor-startup" value="Intermediate" />
+                  <label class="radio-card-label" for="startup-inter">Intermediate</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="startup-harsh" name="motor-startup" value="Harsh" />
+                  <label class="radio-card-label" for="startup-harsh">Harsh</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="startup-other" name="motor-startup" value="Other" />
+                  <label class="radio-card-label" for="startup-other">Other</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Motor Stop <span class="required">*</span></label>
+              <div class="radio-card-group">
+                <div class="radio-card">
+                  <input type="radio" id="stop-smooth" name="motor-stop" value="Smooth" checked />
+                  <label class="radio-card-label" for="stop-smooth">Smooth</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="stop-inter" name="motor-stop" value="Intermediate" />
+                  <label class="radio-card-label" for="stop-inter">Intermediate</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="stop-harsh" name="motor-stop" value="Harsh" />
+                  <label class="radio-card-label" for="stop-harsh">Harsh</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="stop-other" name="motor-stop" value="Other" />
+                  <label class="radio-card-label" for="stop-other">Other</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Assistance <span class="required">*</span></label>
+              <div class="radio-card-group three-cols">
+                <div class="radio-card">
+                  <input type="radio" id="assist-smooth" name="assistance" value="Smooth" checked />
+                  <label class="radio-card-label" for="assist-smooth">Smooth</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="assist-inter" name="assistance" value="Intermediate" />
+                  <label class="radio-card-label" for="assist-inter">Intermediate</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="assist-harsh" name="assistance" value="Harsh" />
+                  <label class="radio-card-label" for="assist-harsh">Harsh</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="power-feeling">Power Feeling <span class="required">*</span></label>
+              <input type="text" id="power-feeling" placeholder="E.g. Progressive and firm power delivery" required />
+            </div>
+
+            <div class="form-group">
+              <label for="motor-feel">Motor Feel / Noise <span class="required">*</span></label>
+              <input type="text" id="motor-feel" placeholder="E.g. Very silent, no vibrations" required />
+            </div>
+
+            <div class="form-group">
+              <label>Motor Error? <span class="required">*</span></label>
+              <div class="radio-card-group two-cols">
+                <div class="radio-card">
+                  <input type="radio" id="error-yes" name="motor-error" value="Yes" />
+                  <label class="radio-card-label" for="error-yes">Yes</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="error-no" name="motor-error" value="No" checked />
+                  <label class="radio-card-label" for="error-no">No</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group full-width" id="group-error-desc" style="opacity: 0.35; pointer-events: none;">
+              <label for="error-description">Error Description <span class="required">*</span></label>
+              <input type="text" id="error-description" placeholder="E.g. Code 03 error occurred during steep climbs" disabled />
+            </div>
+
+            <div class="form-group full-width">
+              <label for="comments">General Comments / Opinion <span class="required">*</span></label>
+              <input type="text" id="comments" placeholder="E.g. Excellent motor performance, very fun ride." required />
+            </div>
+
+            <div class="form-group">
+              <label>Did you use the bike APP? <span class="required">*</span></label>
+              <div class="radio-card-group two-cols">
+                <div class="radio-card">
+                  <input type="radio" id="app-yes" name="use-app" value="Yes" />
+                  <label class="radio-card-label" for="app-yes">Yes</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="app-no" name="use-app" value="No" checked />
+                  <label class="radio-card-label" for="app-no">No</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" id="group-app-exp" style="opacity: 0.35; pointer-events: none;">
+              <label for="app-experience">Comment your experience with APP <span class="required">*</span></label>
+              <input type="text" id="app-experience" placeholder="E.g. Swift connection, intuitive layout" disabled />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: TERRAINS AND DYNAMIC MODE -->
+        <div id="tab-terrain" class="tab-content">
+          <div class="form-grid">
+            
+            <div class="form-group full-width">
+              <label>Are you testing the dynamic mode? <span class="required">*</span></label>
+              <div class="radio-card-group two-cols">
+                <div class="radio-card">
+                  <input type="radio" id="dynamic-yes" name="test-dynamic-mode" value="Yes" />
+                  <label class="radio-card-label" for="dynamic-yes">Yes</label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="dynamic-no" name="test-dynamic-mode" value="No" checked />
+                  <label class="radio-card-label" for="dynamic-no">No</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- DYNAMIC QUESTIONS WRAPPER -->
+            <div id="dynamic-fields-wrapper" class="form-grid full-width dynamic-disabled-field">
+              
+              <div class="form-group full-width">
+                <label for="auto-mode-experience">General experience with AUTO mode <span class="required">*</span></label>
+                <textarea id="auto-mode-experience" placeholder="Did it feel intuitive, smooth, predictable?..."></textarea>
+              </div>
+
+              <!-- Flat -->
+              <div class="form-group full-width">
+                <label>Flat Terrain <span class="required">*</span></label>
+                <div class="radio-card-group">
+                  <div class="radio-card">
+                    <input type="radio" id="flat-too-much" name="flat-terrain-assistance" value="Too much assistance" disabled />
+                    <label class="radio-card-label" for="flat-too-much">Too much</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="flat-not-enough" name="flat-terrain-assistance" value="Not enough assistance" disabled />
+                    <label class="radio-card-label" for="flat-not-enough">Not enough</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="flat-approp" name="flat-terrain-assistance" value="Appropriate assistance" checked disabled />
+                    <label class="radio-card-label" for="flat-approp">Appropriate</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="flat-other" name="flat-terrain-assistance" value="Other" disabled />
+                    <label class="radio-card-label" for="flat-other">Other</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="flat-terrain-perception">Explain your perception (Flat Terrain) <span class="required">*</span></label>
+                <textarea id="flat-terrain-perception" placeholder="Acceleration, cadence support, motor engagement..." disabled></textarea>
+              </div>
+
+              <!-- Moderate -->
+              <div class="form-group full-width">
+                <label>Moderate Terrain / Rolling Terrain <span class="required">*</span></label>
+                <div class="radio-card-group">
+                  <div class="radio-card">
+                    <input type="radio" id="mod-too-much" name="moderate-terrain-assistance" value="Too much assistance" disabled />
+                    <label class="radio-card-label" for="mod-too-much">Too much</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="mod-not-enough" name="moderate-terrain-assistance" value="Not enough assistance" disabled />
+                    <label class="radio-card-label" for="mod-not-enough">Not enough</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="mod-approp" name="moderate-terrain-assistance" value="Appropriate assistance" checked disabled />
+                    <label class="radio-card-label" for="mod-approp">Appropriate</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="mod-other" name="moderate-terrain-assistance" value="Other" disabled />
+                    <label class="radio-card-label" for="mod-other">Other</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="moderate-terrain-perception">Explain your perception (Moderate Terrain) <span class="required">*</span></label>
+                <textarea id="moderate-terrain-perception" placeholder="Behavior during small climbs..." disabled></textarea>
+              </div>
+
+              <!-- Steep -->
+              <div class="form-group full-width">
+                <label>Steep Terrain / Climbing <span class="required">*</span></label>
+                <div class="radio-card-group">
+                  <div class="radio-card">
+                    <input type="radio" id="steep-too-much" name="steep-terrain-assistance" value="Too much assistance" disabled />
+                    <label class="radio-card-label" for="steep-too-much">Too much</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="steep-not-enough" name="steep-terrain-assistance" value="Not enough assistance" disabled />
+                    <label class="radio-card-label" for="steep-not-enough">Not enough</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="steep-approp" name="steep-terrain-assistance" value="Appropriate assistance" checked disabled />
+                    <label class="radio-card-label" for="steep-approp">Appropriate</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="steep-other" name="steep-terrain-assistance" value="Other" disabled />
+                    <label class="radio-card-label" for="steep-other">Other</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="steep-terrain-perception">Explain your perception (Steep Terrain) <span class="required">*</span></label>
+                <textarea id="steep-terrain-perception" placeholder="Support and push in steep climbs..." disabled></textarea>
+              </div>
+
+              <!-- Technical -->
+              <div class="form-group full-width">
+                <label>Technical Terrain (Roots, rocks, low-speed manoeuvring) <span class="required">*</span></label>
+                <div class="radio-card-group">
+                  <div class="radio-card">
+                    <input type="radio" id="tech-too-much" name="technical-terrain-assistance" value="Too much assistance" disabled />
+                    <label class="radio-card-label" for="tech-too-much">Too much</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="tech-not-enough" name="technical-terrain-assistance" value="Not enough assistance" disabled />
+                    <label class="radio-card-label" for="tech-not-enough">Not enough</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="tech-approp" name="technical-terrain-assistance" value="Appropriate assistance" checked disabled />
+                    <label class="radio-card-label" for="tech-approp">Appropriate</label>
+                  </div>
+                  <div class="radio-card">
+                    <input type="radio" id="tech-other" name="technical-terrain-assistance" value="Other" disabled />
+                    <label class="radio-card-label" for="tech-other">Other</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="technical-terrain-perception">Explain your perception (Technical Terrain) <span class="required">*</span></label>
+                <textarea id="technical-terrain-perception" placeholder="Low-speed control, technical turns..." disabled></textarea>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="suggested-improvements">Suggested Improvements <span class="required">*</span></label>
+                <textarea id="suggested-improvements" placeholder="What changes or adjustments would improve your experience?..." disabled></textarea>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <div class="form-footer">
+        <button type="button" class="btn-secondary" id="prev-tab-btn" style="visibility: hidden;">
+          Back
+        </button>
+        <button type="button" class="btn-primary" id="next-tab-btn">
+          Next
+        </button>
+        <button type="submit" class="btn-primary" id="submit-form-btn" style="display: none;">
+          Submit Review
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <!-- TAB NAVIGATION & DYNAMIC FIELD TOGGLE LOGIC -->
+  <script>
+    const tabs = document.querySelectorAll('.tab-btn');
+    const contents = document.querySelectorAll('.tab-content');
+    const prevBtn = document.getElementById('prev-tab-btn');
+    const nextBtn = document.getElementById('next-tab-btn');
+    const submitBtn = document.getElementById('submit-form-btn');
+    
+    let activeIndex = 0;
+
+    function updateTabs() {
+      // Toggle tab content visibility
+      contents.forEach((c, idx) => {
+        if(idx === activeIndex) {
+          c.classList.add('active');
+          tabs[idx].classList.add('active');
+        } else {
+          c.classList.remove('active');
+          tabs[idx].classList.remove('active');
+        }
+      });
+
+      // Handle button labels and visibility
+      if (activeIndex === 0) {
+        prevBtn.style.visibility = 'hidden';
+      } else {
+        prevBtn.style.visibility = 'visible';
+      }
+
+      if (activeIndex === tabs.length - 1) {
+        nextBtn.style.display = 'none';
+        submitBtn.style.display = 'inline-flex';
+      } else {
+        nextBtn.style.display = 'inline-flex';
+        submitBtn.style.display = 'none';
+      }
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        activeIndex = index;
+        updateTabs();
+      });
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (activeIndex < tabs.length - 1) {
+        activeIndex++;
+        updateTabs();
+      }
+    });
+
+    prevBtn.addEventListener('click', () => {
+      if (activeIndex > 0) {
+        activeIndex--;
+        updateTabs();
+      }
+    });
+
+    submitBtn.addEventListener('click', (e) => {
+      const form = document.getElementById('rider-review-form');
+      if (form && !form.checkValidity()) {
+        e.preventDefault();
+        const invalidEl = form.querySelector(':invalid');
+        if (invalidEl) {
+          const tabContent = invalidEl.closest('.tab-content');
+          if (tabContent) {
+            const tabId = tabContent.id;
+            const tabIndex = Array.from(contents).findIndex(c => c.id === tabId);
+            if (tabIndex !== -1) {
+              activeIndex = tabIndex;
+              updateTabs();
+              setTimeout(() => {
+                invalidEl.focus();
+                if (typeof invalidEl.reportValidity === 'function') {
+                  invalidEl.reportValidity();
+                }
+              }, 100);
+            }
+          }
+        }
+      }
+    });
+
+    // 1. Dynamic Mode Toggle
+    const dynamicYesRadio = document.getElementById('dynamic-yes');
+    const dynamicNoRadio = document.getElementById('dynamic-no');
+    const dynamicWrapper = document.getElementById('dynamic-fields-wrapper');
+    
+    const dynamicTextFields = [
+      'auto-mode-experience',
+      'flat-terrain-perception',
+      'moderate-terrain-perception',
+      'steep-terrain-perception',
+      'technical-terrain-perception',
+      'suggested-improvements'
+    ];
+
+    const dynamicRadioFields = [
+      'flat-terrain-assistance',
+      'moderate-terrain-assistance',
+      'steep-terrain-assistance',
+      'technical-terrain-assistance'
+    ];
+
+    function toggleDynamicModeFields() {
+      const isYes = dynamicYesRadio.checked;
+      
+      if (isYes) {
+        dynamicWrapper.classList.remove('dynamic-disabled-field');
+        
+        dynamicTextFields.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.disabled = false;
+            el.required = true;
+          }
+        });
+
+        dynamicRadioFields.forEach(name => {
+          const els = document.querySelectorAll(`input[name="${name}"]`);
+          els.forEach(el => {
+            el.disabled = false;
+          });
+        });
+      } else {
+        dynamicWrapper.classList.add('dynamic-disabled-field');
+        
+        dynamicTextFields.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.disabled = true;
+            el.required = false;
+          }
+        });
+
+        dynamicRadioFields.forEach(name => {
+          const els = document.querySelectorAll(`input[name="${name}"]`);
+          els.forEach(el => {
+            el.disabled = true;
+          });
+        });
+      }
+    }
+
+    dynamicYesRadio.addEventListener('change', toggleDynamicModeFields);
+    dynamicNoRadio.addEventListener('change', toggleDynamicModeFields);
+
+    // 2. Motor Error Toggle
+    const errorYesRadio = document.getElementById('error-yes');
+    const errorNoRadio = document.getElementById('error-no');
+    const errorGroup = document.getElementById('group-error-desc');
+    const errorDescInput = document.getElementById('error-description');
+
+    function toggleErrorFields() {
+      const isYes = errorYesRadio.checked;
+      if (isYes) {
+        errorGroup.style.opacity = '1';
+        errorGroup.style.pointerEvents = 'auto';
+        errorDescInput.disabled = false;
+        errorDescInput.required = true;
+      } else {
+        errorGroup.style.opacity = '0.35';
+        errorGroup.style.pointerEvents = 'none';
+        errorDescInput.disabled = true;
+        errorDescInput.required = false;
+        errorDescInput.value = '';
+      }
+    }
+
+    errorYesRadio.addEventListener('change', toggleErrorFields);
+    errorNoRadio.addEventListener('change', toggleErrorFields);
+
+    // 3. Bike App Toggle
+    const appYesRadio = document.getElementById('app-yes');
+    const appNoRadio = document.getElementById('app-no');
+    const appGroup = document.getElementById('group-app-exp');
+    const appExpInput = document.getElementById('app-experience');
+
+    function toggleAppFields() {
+      const isYes = appYesRadio.checked;
+      if (isYes) {
+        appGroup.style.opacity = '1';
+        appGroup.style.pointerEvents = 'auto';
+        appExpInput.disabled = false;
+        appExpInput.required = true;
+      } else {
+        appGroup.style.opacity = '0.35';
+        appGroup.style.pointerEvents = 'none';
+        appExpInput.disabled = true;
+        appExpInput.required = false;
+        appExpInput.value = '';
+      }
+    }
+
+    appYesRadio.addEventListener('change', toggleAppFields);
+    appNoRadio.addEventListener('change', toggleAppFields);
+  </script>
+
+  <!-- CONTROLLER -->
+  <script type="module">
+    import "/dist/app/controllers/form.controller.js";
+  </script>
+
+</body>
+</html>
