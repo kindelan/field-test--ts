@@ -326,8 +326,7 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
         return row ? row.km : 0;
       }),
       backgroundColor: getColor(i),
-      yAxisID: "y",
-      order: 1
+      yAxisID: "y"
     });
   });
 
@@ -353,8 +352,7 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
         yAxisID: "y1",
         pointRadius: 2.5,
         pointHoverRadius: 4.5,
-        spanGaps: true,
-        order: 2
+        spanGaps: true
       });
     }
   });
