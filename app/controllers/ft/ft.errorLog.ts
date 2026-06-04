@@ -235,9 +235,81 @@ export function renderErrorsPopup(popup: Window, name: string, errors: any[]) {
   popup.document.close();
 }
 
+// Helper to generate weeks between two dates
+function getWeeksBetween(startWeekStr: string, endWeekStr: string): string[] {
+  const weeksList: string[] = [];
+  const current = new Date(startWeekStr);
+  const end = new Date(endWeekStr);
+  
+  current.setHours(12, 0, 0, 0);
+  end.setHours(12, 0, 0, 0);
+
+  let limit = 0;
+  while (current <= end && limit < 1000) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const date = String(current.getDate()).padStart(2, "0");
+    weeksList.push(`${year}-${month}-${date}`);
+    
+    current.setDate(current.getDate() + 7);
+    limit++;
+  }
+  return weeksList;
+}
+
 // ✅ 2. RENDER BIKE DETAILS / METRICS & ERRORS POPUP
 export async function renderBikePopup(popup: Window, bikecode: string, data: any[], fieldTestId: string) {
-  const weeks = [...new Set(data.map(d => d.week))].sort();
+  const allBikes = await context.service.getAllBikes();
+  const bike = allBikes.find(b => {
+    const normB = normalizeBikeCode(b.bikecode || "")?.toLowerCase();
+    const normSearch = normalizeBikeCode(bikecode || "")?.toLowerCase();
+    return normB === normSearch;
+  });
+
+  const history = bike ? await context.service.getBikeHistory(bike.id) : [];
+  let errorTags: any[] = [];
+  let bikeErrors: any[] = [];
+  let errorSystemEnabled = true;
+  try {
+    errorTags = await context.service.getErrorTags();
+  } catch (err) {
+    console.warn("Could not load error tags in popup:", err);
+    errorSystemEnabled = false;
+  }
+  try {
+    if (bike && errorSystemEnabled) {
+      bikeErrors = await context.service.getBikeErrors(fieldTestId, bike.id);
+    }
+  } catch (err) {
+    console.warn("Could not load bike errors in popup:", err);
+  }
+
+  // Generate continuous timeline of weeks
+  let minWeek: string | null = null;
+  let maxWeek: string | null = null;
+
+  if (data.length > 0) {
+    const sortedRides = [...data.map(d => d.week)].sort();
+    minWeek = sortedRides[0];
+    maxWeek = sortedRides[sortedRides.length - 1];
+  }
+
+  // Include error weeks to make sure the error is always visible in the timeline
+  bikeErrors.forEach((e: any) => {
+    const errorDate = new Date(e.error_date);
+    const day = errorDate.getDay();
+    const diff = errorDate.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(errorDate.setDate(diff));
+    const year = monday.getFullYear();
+    const month = String(monday.getMonth() + 1).padStart(2, "0");
+    const date = String(monday.getDate()).padStart(2, "0");
+    const mondayStr = `${year}-${month}-${date}`;
+    
+    if (!minWeek || mondayStr < minWeek) minWeek = mondayStr;
+    if (!maxWeek || mondayStr > maxWeek) maxWeek = mondayStr;
+  });
+
+  const weeks = minWeek && maxWeek ? getWeeksBetween(minWeek, maxWeek) : [];
   const labels = weeks.map(w => formatWeekYear(w));
   const motors = [...new Set(data.map(d => d.motor_code))].sort();
   const batteries = [...new Set(data.map(d => d.battery_code))].sort();
@@ -254,7 +326,8 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
         return row ? row.km : 0;
       }),
       backgroundColor: getColor(i),
-      yAxisID: "y"
+      yAxisID: "y",
+      order: 1
     });
   });
 
@@ -272,15 +345,16 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
         type: "line",
         label: `Desnivel Motor ${motor}`,
         data: weeklyElevations,
-        borderColor: getColor(i),
-        backgroundColor: getColor(i),
+        borderColor: getColor(i + 2),
+        backgroundColor: getColor(i + 2),
         borderWidth: 1.5,
         tension: 0.3,
         fill: false,
         yAxisID: "y1",
         pointRadius: 2.5,
         pointHoverRadius: 4.5,
-        spanGaps: true
+        spanGaps: true,
+        order: 2
       });
     }
   });
@@ -307,31 +381,6 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
       .reduce((acc, r) => acc + Number(r.elevation || 0), 0);
     return { battery: b, km, elevation };
   });
-
-  const allBikes = await context.service.getAllBikes();
-  const bike = allBikes.find(b => {
-    const normB = normalizeBikeCode(b.bikecode || "")?.toLowerCase();
-    const normSearch = normalizeBikeCode(bikecode || "")?.toLowerCase();
-    return normB === normSearch;
-  });
-
-  const history = bike ? await context.service.getBikeHistory(bike.id) : [];
-  let errorTags: any[] = [];
-  let bikeErrors: any[] = [];
-  let errorSystemEnabled = true;
-  try {
-    errorTags = await context.service.getErrorTags();
-  } catch (err) {
-    console.warn("Could not load error tags in popup:", err);
-    errorSystemEnabled = false;
-  }
-  try {
-    if (bike && errorSystemEnabled) {
-      bikeErrors = await context.service.getBikeErrors(fieldTestId, bike.id);
-    }
-  } catch (err) {
-    console.warn("Could not load bike errors in popup:", err);
-  }
 
   const historyRows = history.map(h => `
     <tr>

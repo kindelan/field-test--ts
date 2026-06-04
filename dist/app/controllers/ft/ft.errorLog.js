@@ -229,71 +229,26 @@ export function renderErrorsPopup(popup, name, errors) {
   `);
     popup.document.close();
 }
+// Helper to generate weeks between two dates
+function getWeeksBetween(startWeekStr, endWeekStr) {
+    const weeksList = [];
+    const current = new Date(startWeekStr);
+    const end = new Date(endWeekStr);
+    current.setHours(12, 0, 0, 0);
+    end.setHours(12, 0, 0, 0);
+    let limit = 0;
+    while (current <= end && limit < 1000) {
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, "0");
+        const date = String(current.getDate()).padStart(2, "0");
+        weeksList.push(`${year}-${month}-${date}`);
+        current.setDate(current.getDate() + 7);
+        limit++;
+    }
+    return weeksList;
+}
 // ✅ 2. RENDER BIKE DETAILS / METRICS & ERRORS POPUP
 export async function renderBikePopup(popup, bikecode, data, fieldTestId) {
-    const weeks = [...new Set(data.map(d => d.week))].sort();
-    const labels = weeks.map(w => formatWeekYear(w));
-    const motors = [...new Set(data.map(d => d.motor_code))].sort();
-    const batteries = [...new Set(data.map(d => d.battery_code))].sort();
-    const datasets = [];
-    // Add KM bar datasets
-    motors.forEach((motor, i) => {
-        datasets.push({
-            type: "bar",
-            label: `Motor ${motor}`,
-            data: weeks.map(w => {
-                const row = data.find(d => d.week === w && d.motor_code === motor);
-                return row ? row.km : 0;
-            }),
-            backgroundColor: getColor(i),
-            yAxisID: "y"
-        });
-    });
-    // Add Elevation line datasets
-    motors.forEach((motor, i) => {
-        const weeklyElevations = weeks.map(w => {
-            const row = data.find(d => d.week === w && d.motor_code === motor);
-            const val = row ? Number(row.elevation || 0) : 0;
-            return val > 0 ? val : null;
-        });
-        // Only add dataset if there's at least one non-null elevation value
-        if (weeklyElevations.some(v => v !== null)) {
-            datasets.push({
-                type: "line",
-                label: `Desnivel Motor ${motor}`,
-                data: weeklyElevations,
-                borderColor: getColor(i),
-                backgroundColor: getColor(i),
-                borderWidth: 1.5,
-                tension: 0.3,
-                fill: false,
-                yAxisID: "y1",
-                pointRadius: 2.5,
-                pointHoverRadius: 4.5,
-                spanGaps: true
-            });
-        }
-    });
-    const totalKm = data.reduce((acc, r) => acc + r.km, 0);
-    const totalElevation = data.reduce((acc, r) => acc + Number(r.elevation || 0), 0);
-    const kmByMotor = motors.map(m => {
-        const km = data
-            .filter(d => d.motor_code === m)
-            .reduce((acc, r) => acc + r.km, 0);
-        const elevation = data
-            .filter(d => d.motor_code === m)
-            .reduce((acc, r) => acc + Number(r.elevation || 0), 0);
-        return { motor: m, km, elevation };
-    });
-    const kmByBattery = batteries.map(b => {
-        const km = data
-            .filter(d => d.battery_code === b)
-            .reduce((acc, r) => acc + r.km, 0);
-        const elevation = data
-            .filter(d => d.battery_code === b)
-            .reduce((acc, r) => acc + Number(r.elevation || 0), 0);
-        return { battery: b, km, elevation };
-    });
     const allBikes = await context.service.getAllBikes();
     const bike = allBikes.find(b => {
         const normB = normalizeBikeCode(b.bikecode || "")?.toLowerCase();
@@ -319,6 +274,94 @@ export async function renderBikePopup(popup, bikecode, data, fieldTestId) {
     catch (err) {
         console.warn("Could not load bike errors in popup:", err);
     }
+    // Generate continuous timeline of weeks
+    let minWeek = null;
+    let maxWeek = null;
+    if (data.length > 0) {
+        const sortedRides = [...data.map(d => d.week)].sort();
+        minWeek = sortedRides[0];
+        maxWeek = sortedRides[sortedRides.length - 1];
+    }
+    // Include error weeks to make sure the error is always visible in the timeline
+    bikeErrors.forEach((e) => {
+        const errorDate = new Date(e.error_date);
+        const day = errorDate.getDay();
+        const diff = errorDate.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(errorDate.setDate(diff));
+        const year = monday.getFullYear();
+        const month = String(monday.getMonth() + 1).padStart(2, "0");
+        const date = String(monday.getDate()).padStart(2, "0");
+        const mondayStr = `${year}-${month}-${date}`;
+        if (!minWeek || mondayStr < minWeek)
+            minWeek = mondayStr;
+        if (!maxWeek || mondayStr > maxWeek)
+            maxWeek = mondayStr;
+    });
+    const weeks = minWeek && maxWeek ? getWeeksBetween(minWeek, maxWeek) : [];
+    const labels = weeks.map(w => formatWeekYear(w));
+    const motors = [...new Set(data.map(d => d.motor_code))].sort();
+    const batteries = [...new Set(data.map(d => d.battery_code))].sort();
+    const datasets = [];
+    // Add KM bar datasets
+    motors.forEach((motor, i) => {
+        datasets.push({
+            type: "bar",
+            label: `Motor ${motor}`,
+            data: weeks.map(w => {
+                const row = data.find(d => d.week === w && d.motor_code === motor);
+                return row ? row.km : 0;
+            }),
+            backgroundColor: getColor(i),
+            yAxisID: "y",
+            order: 1
+        });
+    });
+    // Add Elevation line datasets
+    motors.forEach((motor, i) => {
+        const weeklyElevations = weeks.map(w => {
+            const row = data.find(d => d.week === w && d.motor_code === motor);
+            const val = row ? Number(row.elevation || 0) : 0;
+            return val > 0 ? val : null;
+        });
+        // Only add dataset if there's at least one non-null elevation value
+        if (weeklyElevations.some(v => v !== null)) {
+            datasets.push({
+                type: "line",
+                label: `Desnivel Motor ${motor}`,
+                data: weeklyElevations,
+                borderColor: getColor(i + 2),
+                backgroundColor: getColor(i + 2),
+                borderWidth: 1.5,
+                tension: 0.3,
+                fill: false,
+                yAxisID: "y1",
+                pointRadius: 2.5,
+                pointHoverRadius: 4.5,
+                spanGaps: true,
+                order: 2
+            });
+        }
+    });
+    const totalKm = data.reduce((acc, r) => acc + r.km, 0);
+    const totalElevation = data.reduce((acc, r) => acc + Number(r.elevation || 0), 0);
+    const kmByMotor = motors.map(m => {
+        const km = data
+            .filter(d => d.motor_code === m)
+            .reduce((acc, r) => acc + r.km, 0);
+        const elevation = data
+            .filter(d => d.motor_code === m)
+            .reduce((acc, r) => acc + Number(r.elevation || 0), 0);
+        return { motor: m, km, elevation };
+    });
+    const kmByBattery = batteries.map(b => {
+        const km = data
+            .filter(d => d.battery_code === b)
+            .reduce((acc, r) => acc + r.km, 0);
+        const elevation = data
+            .filter(d => d.battery_code === b)
+            .reduce((acc, r) => acc + Number(r.elevation || 0), 0);
+        return { battery: b, km, elevation };
+    });
     const historyRows = history.map(h => `
     <tr>
       <td>${new Date(h.start_at).toLocaleDateString()}</td>

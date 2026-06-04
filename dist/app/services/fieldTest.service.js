@@ -405,6 +405,72 @@ export class FieldTestService {
             throw error;
         return data || [];
     }
+    async calculateKmInFieldTestUpToDate(fieldTestId, bikeCode, dateStr, componentType, componentSerial) {
+        const targetDate = new Date(dateStr);
+        const bikeCodeNorm = normalizeBikeCode(bikeCode);
+        if (!bikeCodeNorm)
+            return 0;
+        // 1. Get the assignment for this bike in this field test
+        const { data: assignments, error: assignErr } = await supabase
+            .from("bike_field_test")
+            .select("*, bikes(*)")
+            .eq("field_test_id", fieldTestId);
+        if (assignErr)
+            throw assignErr;
+        const assignment = (assignments || []).find((a) => {
+            const bCode = a.bikes?.bikecode;
+            return bCode && normalizeBikeCode(bCode)?.toLowerCase() === bikeCodeNorm.toLowerCase();
+        });
+        if (!assignment)
+            return 0;
+        const assignStart = new Date(assignment.start_at);
+        const assignEnd = assignment.end_at ? new Date(assignment.end_at) : null;
+        // 2. Fetch all rides
+        const rides = await this.fetchAllRides();
+        // 3. If component is specified, fetch its history to find when it was active
+        let compStart = null;
+        let compEnd = null;
+        if (componentType && componentSerial) {
+            const { data: histories } = await supabase
+                .from("bike_component_history")
+                .select("*")
+                .eq("bike_id", assignment.bike_id)
+                .eq("component_type", componentType)
+                .eq("component_serial_code", componentSerial);
+            // Find the history entry that covers the targetDate
+            const matchingHist = (histories || []).find((h) => {
+                const s = new Date(h.start_at);
+                const e = h.end_at ? new Date(h.end_at) : null;
+                return targetDate >= s && (!e || targetDate <= e);
+            });
+            if (matchingHist) {
+                compStart = new Date(matchingHist.start_at);
+                compEnd = matchingHist.end_at ? new Date(matchingHist.end_at) : null;
+            }
+        }
+        // 4. Filter rides
+        const matchingRides = rides.filter((r) => {
+            const rNorm = normalizeBikeCode(r.bike_code);
+            if (!rNorm || rNorm.toLowerCase() !== bikeCodeNorm.toLowerCase()) {
+                return false;
+            }
+            const rDate = this.getRideDate(r);
+            if (!rDate || rDate > targetDate)
+                return false;
+            // Must be within field test assignment
+            if (rDate < assignStart || (assignEnd && rDate > assignEnd)) {
+                return false;
+            }
+            // Must be within component history active period if specified
+            if (compStart) {
+                if (rDate < compStart || (compEnd && rDate > compEnd)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        return matchingRides.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+    }
     async calculateBikeKmUpToDate(bikeCode, dateStr) {
         const targetDate = new Date(dateStr);
         const bikeCodeNorm = normalizeBikeCode(bikeCode);
@@ -425,15 +491,55 @@ export class FieldTestService {
         // 1. Fetch the bike code
         const { data: bike, error: bikeErr } = await supabase
             .from("bikes")
-            .select("bikecode")
+            .select("id, bikecode, motorcode, batterycode")
             .eq("id", bikeId)
             .single();
         if (bikeErr)
             throw bikeErr;
         if (!bike)
             throw new Error("Bike not found");
-        // 2. Calculate accumulated KM up to errorDate
-        const kmAtFailure = await this.calculateBikeKmUpToDate(bike.bikecode, errorDate);
+        // 2. Fetch the error tag to see if it is component-specific
+        const { data: tag } = await supabase
+            .from("error_tags")
+            .select("component")
+            .eq("id", errorTagId)
+            .single();
+        let componentType = undefined;
+        let componentSerial = undefined;
+        if (tag) {
+            if (tag.component === 'motor') {
+                componentType = 'motor';
+                const { data: histories } = await supabase
+                    .from("bike_component_history")
+                    .select("component_serial_code, start_at, end_at")
+                    .eq("bike_id", bikeId)
+                    .eq("component_type", "motor");
+                const activeHist = (histories || []).find((h) => {
+                    const s = new Date(h.start_at);
+                    const e = h.end_at ? new Date(h.end_at) : null;
+                    const d = new Date(errorDate);
+                    return d >= s && (!e || d <= e);
+                });
+                componentSerial = activeHist ? activeHist.component_serial_code : (bike.motorcode || undefined);
+            }
+            else if (tag.component === 'battery') {
+                componentType = 'battery';
+                const { data: histories } = await supabase
+                    .from("bike_component_history")
+                    .select("component_serial_code, start_at, end_at")
+                    .eq("bike_id", bikeId)
+                    .eq("component_type", "battery");
+                const activeHist = (histories || []).find((h) => {
+                    const s = new Date(h.start_at);
+                    const e = h.end_at ? new Date(h.end_at) : null;
+                    const d = new Date(errorDate);
+                    return d >= s && (!e || d <= e);
+                });
+                componentSerial = activeHist ? activeHist.component_serial_code : (bike.batterycode || undefined);
+            }
+        }
+        // Calculate km inside field test up to errorDate
+        const kmAtFailure = await this.calculateKmInFieldTestUpToDate(fieldTestId, bike.bikecode, errorDate, componentType, componentSerial);
         // 3. Insert the new bike error
         const { error: insertErr } = await supabase
             .from("bike_errors")
@@ -443,7 +549,9 @@ export class FieldTestService {
             error_tag_id: errorTagId,
             error_date: errorDate,
             km_at_failure: kmAtFailure,
-            description: desc || null
+            description: desc || null,
+            motor_code: componentType === 'motor' ? componentSerial : null,
+            battery_code: componentType === 'battery' ? componentSerial : null
         });
         if (insertErr)
             throw insertErr;
@@ -507,7 +615,7 @@ export class FieldTestService {
                 .eq("id", bikeId)
                 .single();
             if (!bikeErr && bike) {
-                kmAtFailure = await this.calculateBikeKmUpToDate(bike.bikecode, errorDate);
+                kmAtFailure = await this.calculateKmInFieldTestUpToDate(fieldTestId, bike.bikecode, errorDate, targetType !== 'bike' ? targetType : undefined, targetType !== 'bike' ? targetValue : undefined);
             }
         }
         const { error } = await supabase
