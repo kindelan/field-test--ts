@@ -312,7 +312,8 @@ export async function renderBikePopup(popup, bikecode, data, fieldTestId) {
                 return row ? row.km : 0;
             }),
             backgroundColor: getColor(i),
-            yAxisID: "y"
+            yAxisID: "y",
+            order: 2
         });
     });
     // Add Elevation line datasets
@@ -336,7 +337,8 @@ export async function renderBikePopup(popup, bikecode, data, fieldTestId) {
                 yAxisID: "y1",
                 pointRadius: 2.5,
                 pointHoverRadius: 4.5,
-                spanGaps: true
+                spanGaps: true,
+                order: 1
             });
         }
     });
