@@ -1,9 +1,10 @@
 import { AuthService } from "../services/auth.service.js";
 /**
- * Enforces dashboard authentication.
- * If user is not logged in or doesn't have dashboard access, they are redirected to login.html.
+ * Enforces dashboard and form authentication.
+ * If user is not logged in, they are redirected to login.html.
+ * If dashboardOnly is true and they are a Rider, they are redirected to form.html.
  */
-export async function requireAuth() {
+export async function requireAuth(dashboardOnly = true) {
     const authService = new AuthService();
     let session = null;
     try {
@@ -16,15 +17,19 @@ export async function requireAuth() {
         window.location.href = "login.html";
         throw new Error("Redirecting to login...");
     }
-    if (!session.capabilities.canViewDashboard) {
-        try {
-            await authService.signOut();
-        }
-        catch (e) {
-            console.warn("Failed to sign out invalid user:", e);
-        }
-        window.location.href = "login.html";
+    if (dashboardOnly && !session.capabilities.canViewDashboard) {
+        window.location.href = "form.html";
         throw new Error("Restricted access redirect...");
+    }
+    // If Rider is logged in, hide dashboard navigation tabs dynamically
+    if (!session.capabilities.canViewDashboard) {
+        const navLinks = document.querySelectorAll(".nav-container a");
+        navLinks.forEach(link => {
+            const href = link.getAttribute("href");
+            if (href && (href.includes("bikes.html") || href.includes("ft.html") || href.includes("import.html"))) {
+                link.style.display = "none";
+            }
+        });
     }
     // Dynamically bind logout button if it exists on the page
     const logoutBtn = document.getElementById("logout-btn");

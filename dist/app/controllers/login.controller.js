@@ -7,12 +7,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const submitBtn = document.getElementById("submit-btn");
     const errorAlert = document.getElementById("error-alert");
     const authService = new AuthService();
-    // Redirect to dashboard if already authenticated with correct capabilities
+    // Redirect to appropriate page if already authenticated
     (async () => {
         try {
             const session = await authService.getSession();
-            if (session && session.capabilities.canViewDashboard) {
-                window.location.href = "ft.html";
+            if (session) {
+                if (session.capabilities.canViewDashboard) {
+                    window.location.href = "ft.html";
+                }
+                else {
+                    window.location.href = "form.html";
+                }
             }
         }
         catch (e) {
@@ -43,13 +48,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!session) {
                     throw new Error("No se pudo iniciar la sesión o recuperar el perfil.");
                 }
-                if (!session.capabilities.canViewDashboard) {
-                    // Sign out immediately if they don't have access to dashboards
-                    await authService.signOut();
-                    throw new Error("Acceso restringido. Este panel de control es exclusivo para empleados de Mahle y administradores.");
+                if (session.capabilities.canViewDashboard) {
+                    window.location.href = "ft.html";
                 }
-                // Access approved, redirect
-                window.location.href = "ft.html";
+                else {
+                    window.location.href = "form.html";
+                }
             }
             catch (err) {
                 console.error(err);

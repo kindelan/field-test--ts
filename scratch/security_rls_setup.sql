@@ -45,10 +45,11 @@ DROP POLICY IF EXISTS "Allow write for admins on app_admins" ON public.app_admin
 CREATE POLICY "Allow write for admins on app_admins" ON public.app_admins
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
--- 4. Policies for test_ride_feedback (Public Inserts, Selective Select)
+-- 4. Policies for test_ride_feedback (Authenticated Inserts, Selective Select)
 DROP POLICY IF EXISTS "Allow public insert on feedback" ON public.test_ride_feedback;
-CREATE POLICY "Allow public insert on feedback" ON public.test_ride_feedback
-  FOR INSERT TO public, anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated insert on feedback" ON public.test_ride_feedback;
+CREATE POLICY "Allow authenticated insert on feedback" ON public.test_ride_feedback
+  FOR INSERT TO authenticated WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow select for Mahle and Admins on feedback" ON public.test_ride_feedback;
 CREATE POLICY "Allow select for Mahle and Admins on feedback" ON public.test_ride_feedback
@@ -58,10 +59,11 @@ DROP POLICY IF EXISTS "Allow full admin write on feedback" ON public.test_ride_f
 CREATE POLICY "Allow full admin write on feedback" ON public.test_ride_feedback
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
--- 5. Policies for test_ride_log (Public Inserts, Selective Select)
+-- 5. Policies for test_ride_log (Authenticated Inserts, Selective Select)
 DROP POLICY IF EXISTS "Allow public insert on test_ride_log" ON public.test_ride_log;
-CREATE POLICY "Allow public insert on test_ride_log" ON public.test_ride_log
-  FOR INSERT TO public, anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated insert on test_ride_log" ON public.test_ride_log;
+CREATE POLICY "Allow authenticated insert on test_ride_log" ON public.test_ride_log
+  FOR INSERT TO authenticated WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow select for Mahle and Admins on test_ride_log" ON public.test_ride_log;
 CREATE POLICY "Allow select for Mahle and Admins on test_ride_log" ON public.test_ride_log
@@ -71,19 +73,21 @@ DROP POLICY IF EXISTS "Allow full admin write on test_ride_log" ON public.test_r
 CREATE POLICY "Allow full admin write on test_ride_log" ON public.test_ride_log
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
--- 6. Generic Policies for other metadata tables: Read for Viewer/Admin, Write for Admin
+-- 6. Generic Policies for other metadata tables: Read for Authenticated, Write for Admin
 
 -- bikes
 DROP POLICY IF EXISTS "Select for Mahle and Admins on bikes" ON public.bikes;
 DROP POLICY IF EXISTS "Allow public select on bikes" ON public.bikes;
-CREATE POLICY "Allow public select on bikes" ON public.bikes FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow authenticated select on bikes" ON public.bikes;
+CREATE POLICY "Allow authenticated select on bikes" ON public.bikes FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admin write on bikes" ON public.bikes;
 CREATE POLICY "Admin write on bikes" ON public.bikes FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- bike_component_history
 DROP POLICY IF EXISTS "Select for Mahle and Admins on comp_history" ON public.bike_component_history;
 DROP POLICY IF EXISTS "Allow public select on comp_history" ON public.bike_component_history;
-CREATE POLICY "Allow public select on comp_history" ON public.bike_component_history FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow authenticated select on comp_history" ON public.bike_component_history;
+CREATE POLICY "Allow authenticated select on comp_history" ON public.bike_component_history FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admin write on comp_history" ON public.bike_component_history;
 CREATE POLICY "Admin write on comp_history" ON public.bike_component_history FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
@@ -96,14 +100,16 @@ CREATE POLICY "Admin write on history" ON public.bike_history FOR ALL TO authent
 -- field_test
 DROP POLICY IF EXISTS "Select for Mahle and Admins on field_test" ON public.field_test;
 DROP POLICY IF EXISTS "Allow public select on field_test" ON public.field_test;
-CREATE POLICY "Allow public select on field_test" ON public.field_test FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow authenticated select on field_test" ON public.field_test;
+CREATE POLICY "Allow authenticated select on field_test" ON public.field_test FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admin write on field_test" ON public.field_test;
 CREATE POLICY "Admin write on field_test" ON public.field_test FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- bike_field_test
 DROP POLICY IF EXISTS "Select for Mahle and Admins on bike_field_test" ON public.bike_field_test;
 DROP POLICY IF EXISTS "Allow public select on bike_field_test" ON public.bike_field_test;
-CREATE POLICY "Allow public select on bike_field_test" ON public.bike_field_test FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow authenticated select on bike_field_test" ON public.bike_field_test;
+CREATE POLICY "Allow authenticated select on bike_field_test" ON public.bike_field_test FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Admin write on bike_field_test" ON public.bike_field_test;
 CREATE POLICY "Admin write on bike_field_test" ON public.bike_field_test FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 

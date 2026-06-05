@@ -1,7 +1,14 @@
 import { RideLogService } from "../services/rideLog.service.js";
 import type { CreateRideLogDTO, CreateRideFeedbackDTO } from "../dto/index.js";
+import { requireAuth } from "../utils/authGuard.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await requireAuth(false);
+  } catch (err) {
+    return;
+  }
+
   const service = new RideLogService();
 
   const form = document.getElementById("rider-review-form") as HTMLFormElement;

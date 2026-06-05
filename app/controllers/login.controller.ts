@@ -10,12 +10,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const authService = new AuthService();
 
-  // Redirect to dashboard if already authenticated with correct capabilities
+  // Redirect to appropriate page if already authenticated
   (async () => {
     try {
       const session = await authService.getSession();
-      if (session && session.capabilities.canViewDashboard) {
-        window.location.href = "ft.html";
+      if (session) {
+        if (session.capabilities.canViewDashboard) {
+          window.location.href = "ft.html";
+        } else {
+          window.location.href = "form.html";
+        }
       }
     } catch (e) {
       console.warn("Failed to check initial session:", e);
@@ -52,14 +56,11 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("No se pudo iniciar la sesión o recuperar el perfil.");
         }
 
-        if (!session.capabilities.canViewDashboard) {
-          // Sign out immediately if they don't have access to dashboards
-          await authService.signOut();
-          throw new Error("Acceso restringido. Este panel de control es exclusivo para empleados de Mahle y administradores.");
+        if (session.capabilities.canViewDashboard) {
+          window.location.href = "ft.html";
+        } else {
+          window.location.href = "form.html";
         }
-
-        // Access approved, redirect
-        window.location.href = "ft.html";
 
       } catch (err: any) {
         console.error(err);
