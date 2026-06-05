@@ -192,7 +192,7 @@ export function renderErrorsPopup(popup: Window, name: string, errors: any[]) {
         datasets: [{
           label: "Cantidad",
           data: ${JSON.stringify(tagData)},
-          backgroundColor: ${JSON.stringify(tagData.map((_, i) => `getColor(${i})`))}
+          backgroundColor: ${JSON.stringify(tagData)}.map((_, i) => getColor(i))
         }]
       },
       options: {
@@ -212,7 +212,7 @@ export function renderErrorsPopup(popup: Window, name: string, errors: any[]) {
         labels: ${JSON.stringify(compLabels)},
         datasets: [{
           data: ${JSON.stringify(compData)},
-          backgroundColor: ${JSON.stringify(compData.map((_, i) => `getColor(${i + 3})`))},
+          backgroundColor: ${JSON.stringify(compData)}.map((_, i) => getColor(i + 3)),
           borderColor: "#151c2c",
           borderWidth: 2
         }]
