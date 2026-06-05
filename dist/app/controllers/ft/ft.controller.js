@@ -1,15 +1,40 @@
 import { context } from "./ft.context.js";
 import { initErrorLog } from "./ft.errorLog.js";
+import { requireAuth } from "../../utils/authGuard.js";
 // Make sure sub-controllers are imported so they register themselves in the context
 import "./ft.kmSummary.js";
 import "./ft.bikeManagement.js";
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    let session;
+    try {
+        session = await requireAuth();
+        context.userSession = session;
+    }
+    catch (err) {
+        // requireAuth handles redirection
+        return;
+    }
     const statusSelect = document.getElementById("selected-ft-status");
     const deleteBtn = document.getElementById("delete-ft-btn");
     const totalEl = document.getElementById("ft-total-km");
     const tbody = document.getElementById("ft-km-tbody");
     const filterSelect = document.getElementById("ft-filter-status");
     const createForm = document.getElementById("create-ft-form");
+    // Apply read-only view restrictions if user cannot edit data
+    if (!session.capabilities.canEditData) {
+        if (createForm) {
+            createForm.style.display = "none";
+            const sidebarSections = document.querySelectorAll(".sidebar h4");
+            sidebarSections.forEach(s => {
+                if (s.textContent?.includes("Nuevo")) {
+                    s.style.display = "none";
+                }
+            });
+        }
+        if (deleteBtn) {
+            deleteBtn.style.display = "none";
+        }
+    }
     /* ============================= */
     createForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -38,9 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 const heading = document.getElementById("selected-ft-name-heading");
                 if (heading)
                     heading.textContent = ft.name;
-                statusSelect.value = ft.status;
-                statusSelect.removeAttribute("disabled");
-                deleteBtn.removeAttribute("disabled");
+                if (session.capabilities.canEditData) {
+                    statusSelect.value = ft.status;
+                    statusSelect.removeAttribute("disabled");
+                    deleteBtn.removeAttribute("disabled");
+                }
+                else {
+                    statusSelect.value = ft.status;
+                    statusSelect.setAttribute("disabled", "true");
+                    if (deleteBtn)
+                        deleteBtn.style.display = "none";
+                }
                 const placeholder = document.getElementById("placeholder-view");
                 const detailView = document.getElementById("ft-detail-view");
                 if (placeholder)

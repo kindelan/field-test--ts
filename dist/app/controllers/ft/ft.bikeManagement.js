@@ -25,6 +25,10 @@ export async function loadBikes() {
         const div = document.createElement("div");
         const btn = document.createElement("button");
         btn.textContent = "Quitar";
+        if (context.userSession && !context.userSession.capabilities.canEditData) {
+            btn.disabled = true;
+            btn.style.display = "none";
+        }
         btn.onclick = async () => {
             try {
                 await context.service.unassignBike(r.bikes.id);
@@ -62,6 +66,10 @@ export async function loadBikes() {
         }
         else {
             btn.textContent = "Añadir";
+            if (context.userSession && !context.userSession.capabilities.canEditData) {
+                btn.disabled = true;
+                btn.style.display = "none";
+            }
             btn.onclick = async () => {
                 try {
                     await context.service.assignBike(b.id, context.selectedFTId);

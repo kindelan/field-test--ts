@@ -29,5 +29,19 @@ export async function requireAuth(): Promise<UserSession> {
     throw new Error("Restricted access redirect...");
   }
 
+  // Dynamically bind logout button if it exists on the page
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) {
+    logoutBtn.onclick = async (e) => {
+      e.preventDefault();
+      try {
+        await authService.signOut();
+      } catch (err) {
+        console.error("Error signing out:", err);
+      }
+      window.location.href = "login.html";
+    };
+  }
+
   return session;
 }

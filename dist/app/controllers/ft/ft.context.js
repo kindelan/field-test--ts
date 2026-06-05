@@ -4,6 +4,7 @@ export const context = {
     service: new FieldTestService(),
     selectedFTId: null,
     selectedFTName: null,
+    userSession: null,
     // Centralized coordinator functions to prevent circular dependencies
     loadFieldTests: async () => { },
     loadKmSummary: async () => { },

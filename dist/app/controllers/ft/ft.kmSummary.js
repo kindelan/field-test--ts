@@ -1177,12 +1177,16 @@ export async function loadKmSummary() {
         errorSystemEnabled = false;
     }
     if (errorSystemEnabled) {
+        const showErrorsBtn = `<button id="ft-errors-btn" class="primary-action" style="background: var(--accent-red); border-color: var(--accent-red); margin-left: 6px;">Ver gráfico errores</button>`;
+        const showAddErrorBtn = context.userSession?.capabilities.canEditData
+            ? `<button id="ft-add-error-btn" class="primary-action" style="background: var(--accent-red); border-color: var(--accent-red); margin-left: 6px;">Reportar Incidencia</button>`
+            : ``;
         totalEl.innerHTML = `
       <strong>Km Field Test:</strong> ${kmTotal.toFixed(1)} km
       <button id="ft-motor-btn">Ver gráfico motores</button>
       <button id="ft-bike-btn">Ver gráfico bicis</button>
-      <button id="ft-errors-btn" class="primary-action" style="background: var(--accent-red); border-color: var(--accent-red); margin-left: 6px;">Ver gráfico errores</button>
-      <button id="ft-add-error-btn" class="primary-action" style="background: var(--accent-red); border-color: var(--accent-red); margin-left: 6px;">Reportar Incidencia</button>
+      ${showErrorsBtn}
+      ${showAddErrorBtn}
     `;
         bindBasicButtons();
         document.getElementById("ft-errors-btn").onclick = async () => {
@@ -1199,34 +1203,47 @@ export async function loadKmSummary() {
                 popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar errores: ${err}</p>`);
             }
         };
-        document.getElementById("ft-add-error-btn").onclick = async () => {
-            const popup = window.open("", "_blank");
-            if (!popup)
-                return;
-            popup.document.write("<p>Cargando…</p>");
-            try {
-                const tags = await context.service.getErrorTags();
-                const assigned = await context.service.getBikesAssigned(context.selectedFTId);
-                // Extract bikes with details
-                const bikes = assigned
-                    .filter(a => a && a.bikes)
-                    .map(a => ({
-                    id: a.bikes.id,
-                    code: a.bikes.bikecode,
-                    motor: a.bikes.motorcode,
-                    battery: a.bikes.batterycode
-                }));
-                renderAddErrorPopup(popup, context.selectedFTName || "Field Test", tags, bikes);
-            }
-            catch (err) {
-                console.error("Error opening add error popup:", err);
-                popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al abrir formulario: ${err}</p>`);
-            }
-        };
+        const addErrorBtn = document.getElementById("ft-add-error-btn");
+        if (addErrorBtn) {
+            addErrorBtn.onclick = async () => {
+                const popup = window.open("", "_blank");
+                if (!popup)
+                    return;
+                popup.document.write("<p>Cargando…</p>");
+                try {
+                    const tags = await context.service.getErrorTags();
+                    const assigned = await context.service.getBikesAssigned(context.selectedFTId);
+                    // Extract bikes with details
+                    const bikes = assigned
+                        .filter(a => a && a.bikes)
+                        .map(a => ({
+                        id: a.bikes.id,
+                        code: a.bikes.bikecode,
+                        motor: a.bikes.motorcode,
+                        battery: a.bikes.batterycode
+                    }));
+                    renderAddErrorPopup(popup, context.selectedFTName || "Field Test", tags, bikes);
+                }
+                catch (err) {
+                    console.error("Error opening add error popup:", err);
+                    popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al abrir formulario: ${err}</p>`);
+                }
+            };
+        }
+        ;
         if (filterContainer && errorFilter) {
             filterContainer.style.display = "flex";
-            if (createTagForm)
-                createTagForm.style.display = "";
+            if (createTagForm) {
+                if (context.userSession?.capabilities.canEditData) {
+                    createTagForm.style.display = "";
+                }
+                else {
+                    createTagForm.style.display = "none";
+                    const detailsAccordion = createTagForm.closest("details");
+                    if (detailsAccordion)
+                        detailsAccordion.style.display = "none";
+                }
+            }
             if (errorSystemStatus)
                 errorSystemStatus.innerHTML = "";
             const currentVal = errorFilter.value;

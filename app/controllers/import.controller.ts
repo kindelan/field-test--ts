@@ -3,6 +3,7 @@ declare const XLSX: any;
 
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+import { requireAuth } from "../utils/authGuard.js";
 
 /* ======================================================
    HELPERS
@@ -43,7 +44,13 @@ function parseRideDate(dateStr: string | null): Date | null {
 
 /* ====================================================== */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  let session;
+  try {
+    session = await requireAuth();
+  } catch (err) {
+    return;
+  }
 
   const fileInput = document.getElementById("excel-file") as HTMLInputElement;
   const uploadBtn = document.getElementById("upload-btn") as HTMLButtonElement;
@@ -56,6 +63,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnClearFilters = document.getElementById("btn-clear-filters") as HTMLButtonElement;
 
   const tableBody = document.getElementById("summary-body") as HTMLTableSectionElement;
+
+  const uploadArea = document.getElementById("upload-area") as HTMLElement;
+
+  if (!session.capabilities.canImportExcel) {
+    if (uploadArea) {
+      uploadArea.innerHTML = `
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-amber); margin-bottom: 12px;">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <p style="color: var(--text-secondary); font-size: 14px; font-weight: 500;">
+          Modo Solo Lectura: No tienes permisos para importar archivos Excel.
+        </p>
+      `;
+    }
+    if (statusDiv) {
+      statusDiv.textContent = "Vista restringida a modo lectura.";
+    }
+  }
 
   let rides: any[] = [];
   let uploadedBikeCodes: Set<string> | null = null;
@@ -228,47 +254,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ====================================================== */
 
-  uploadBtn.addEventListener("click", async () => {
+  if (uploadBtn && session.capabilities.canImportExcel) {
+    uploadBtn.addEventListener("click", async () => {
 
-    const file = fileInput.files?.[0];
-    if (!file) return;
+      const file = fileInput.files?.[0];
+      if (!file) return;
 
-    statusDiv.textContent = "Importando Excel…";
-    clearFilterBtn.style.display = "none";
+      statusDiv.textContent = "Importando Excel…";
+      clearFilterBtn.style.display = "none";
 
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    const excelRows = XLSX.utils.sheet_to_json(sheet, {
-      raw: false,
-      defval: null
+      const excelRows = XLSX.utils.sheet_to_json(sheet, {
+        raw: false,
+        defval: null
+      });
+
+      uploadedBikeCodes = new Set<string>();
+
+      excelRows.forEach((r: any) => {
+        const raw = r["Bike Code"] ?? r["Bike code2"];
+        const norm = normBike(raw);
+        if (norm) uploadedBikeCodes!.add(norm);
+      });
+
+      const { data: result, error } =
+        await supabase.functions.invoke("import-field-test", { body: excelRows });
+
+      if (error) {
+        console.error(error);
+        statusDiv.textContent = "❌ Error importando Excel";
+        uploadedBikeCodes = null;
+        return;
+      }
+
+      if (fileInput) fileInput.value = "";
+
+      await loadRidesFromDB();
+
+      statusDiv.textContent = `✅ Importado (${result?.inserted ?? 0})`;
     });
-
-    uploadedBikeCodes = new Set<string>();
-
-    excelRows.forEach((r: any) => {
-      const raw = r["Bike Code"] ?? r["Bike code2"];
-      const norm = normBike(raw);
-      if (norm) uploadedBikeCodes!.add(norm);
-    });
-
-    const { data: result, error } =
-      await supabase.functions.invoke("import-field-test", { body: excelRows });
-
-    if (error) {
-      console.error(error);
-      statusDiv.textContent = "❌ Error importando Excel";
-      uploadedBikeCodes = null;
-      return;
-    }
-
-    fileInput.value = "";
-
-    await loadRidesFromDB();
-
-    statusDiv.textContent = `✅ Importado (${result?.inserted ?? 0})`;
-  });
+  }
 
   loadRidesFromDB();
 });

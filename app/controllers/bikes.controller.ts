@@ -7,10 +7,17 @@ import {
   renderChangeComponentForm
 } from "./bikes.ui.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+import { requireAuth } from "../utils/authGuard.js";
 
 const service = new BikesService();
 
 async function main() {
+  let session;
+  try {
+    session = await requireAuth();
+  } catch (err) {
+    return;
+  }
   /* =============================
      CONTENEDORES
   ============================= */
@@ -157,7 +164,8 @@ async function main() {
         onClose: () => {
           closeAll();
         }
-      }
+      },
+      session.capabilities.canEditData
     );
   }
 
@@ -168,6 +176,13 @@ async function main() {
   const createInput = document.getElementById("new-bike-code") as HTMLInputElement;
 
   if (createBtn && createInput) {
+    if (!session.capabilities.canEditData) {
+      const creatorPanel = document.querySelector(".creator-panel") as HTMLElement;
+      if (creatorPanel) {
+        creatorPanel.style.display = "none";
+      }
+    }
+
     createBtn.onclick = async () => {
       const bikecode = createInput.value.trim();
 

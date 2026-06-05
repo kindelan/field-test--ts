@@ -1,8 +1,16 @@
 import { BikesService } from "../services/bikes.service.js";
 import { renderBikeList, renderBikeDetail, renderEditForm, renderBikeHistory, renderChangeComponentForm } from "./bikes.ui.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+import { requireAuth } from "../utils/authGuard.js";
 const service = new BikesService();
 async function main() {
+    let session;
+    try {
+        session = await requireAuth();
+    }
+    catch (err) {
+        return;
+    }
     /* =============================
        CONTENEDORES
     ============================= */
@@ -133,7 +141,7 @@ async function main() {
             onClose: () => {
                 closeAll();
             }
-        });
+        }, session.capabilities.canEditData);
     }
     /* =============================
        CREAR BICI
@@ -141,6 +149,12 @@ async function main() {
     const createBtn = document.getElementById("create-bike");
     const createInput = document.getElementById("new-bike-code");
     if (createBtn && createInput) {
+        if (!session.capabilities.canEditData) {
+            const creatorPanel = document.querySelector(".creator-panel");
+            if (creatorPanel) {
+                creatorPanel.style.display = "none";
+            }
+        }
         createBtn.onclick = async () => {
             const bikecode = createInput.value.trim();
             if (!bikecode) {

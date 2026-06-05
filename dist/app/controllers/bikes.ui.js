@@ -29,7 +29,7 @@ export function renderBikeList(bikes, container, onSelect, selectedId) {
 /* ======================================================
  * DETALLE DE BICI
  * ====================================================== */
-export function renderBikeDetail(bike, container, actions) {
+export function renderBikeDetail(bike, container, actions, canEdit = true) {
     container.innerHTML = "";
     // Header with title and close button
     const header = document.createElement("div");
@@ -77,23 +77,25 @@ export function renderBikeDetail(bike, container, actions) {
     // Actions group
     const actionGroup = document.createElement("div");
     actionGroup.className = "action-group";
-    const editBtn = document.createElement("button");
-    editBtn.className = "primary-action";
-    editBtn.innerHTML = "✏️ Editar metadatos";
-    editBtn.onclick = actions.onEditMeta;
-    actionGroup.appendChild(editBtn);
-    const changeComponents = [
-        { type: "motor", label: "🔧 Cambiar Motor" },
-        { type: "battery", label: "🔋 Cambiar Batería" },
-        { type: "hmi", label: "🖥️ Cambiar HMI" },
-        { type: "other", label: "📦 Cambiar Otros" }
-    ];
-    changeComponents.forEach(comp => {
-        const btn = document.createElement("button");
-        btn.textContent = comp.label;
-        btn.onclick = () => actions.onChangeComponent(comp.type);
-        actionGroup.appendChild(btn);
-    });
+    if (canEdit) {
+        const editBtn = document.createElement("button");
+        editBtn.className = "primary-action";
+        editBtn.innerHTML = "✏️ Editar metadatos";
+        editBtn.onclick = actions.onEditMeta;
+        actionGroup.appendChild(editBtn);
+        const changeComponents = [
+            { type: "motor", label: "🔧 Cambiar Motor" },
+            { type: "battery", label: "🔋 Cambiar Batería" },
+            { type: "hmi", label: "🖥️ Cambiar HMI" },
+            { type: "other", label: "📦 Cambiar Otros" }
+        ];
+        changeComponents.forEach(comp => {
+            const btn = document.createElement("button");
+            btn.textContent = comp.label;
+            btn.onclick = () => actions.onChangeComponent(comp.type);
+            actionGroup.appendChild(btn);
+        });
+    }
     const historyBtn = document.createElement("button");
     historyBtn.innerHTML = "📜 Ver Histórico";
     historyBtn.onclick = actions.onShowHistory;
