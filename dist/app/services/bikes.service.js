@@ -26,7 +26,6 @@ export class BikesService {
         scope,
         target,
         comments,
-        field_test_id,
         created_at,
         updated_at
       `)
