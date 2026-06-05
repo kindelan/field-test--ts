@@ -25,6 +25,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 3. Enable RLS on all tables
+ALTER TABLE public.app_admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bikes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bike_component_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bike_history ENABLE ROW LEVEL SECURITY;
@@ -35,6 +36,14 @@ ALTER TABLE public.test_ride_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.error_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bike_errors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_recipients ENABLE ROW LEVEL SECURITY;
+
+-- 3.5 Policies for app_admins
+DROP POLICY IF EXISTS "Allow select for authenticated on app_admins" ON public.app_admins;
+CREATE POLICY "Allow select for authenticated on app_admins" ON public.app_admins
+  FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow write for admins on app_admins" ON public.app_admins;
+CREATE POLICY "Allow write for admins on app_admins" ON public.app_admins
+  FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- 4. Policies for test_ride_feedback (Public Inserts, Selective Select)
 DROP POLICY IF EXISTS "Allow public insert on feedback" ON public.test_ride_feedback;
