@@ -1223,26 +1223,29 @@ export async function loadKmSummary() {
                 popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al abrir formulario: ${err}</p>`);
             }
         };
-        filterContainer.style.display = "flex";
-        if (createTagForm)
-            createTagForm.style.display = "";
-        if (errorSystemStatus)
-            errorSystemStatus.innerHTML = "";
-        const currentVal = errorFilter.value;
-        errorFilter.innerHTML = '<option value="all">Todos los errores</option>';
-        tags.forEach(t => {
-            const opt = document.createElement("option");
-            opt.value = t.id;
-            opt.textContent = `${t.name} (${t.component})`;
-            errorFilter.appendChild(opt);
-        });
-        // Keep selection if possible
-        if ([...errorFilter.options].some(o => o.value === currentVal)) {
-            errorFilter.value = currentVal;
+        if (filterContainer && errorFilter) {
+            filterContainer.style.display = "flex";
+            if (createTagForm)
+                createTagForm.style.display = "";
+            if (errorSystemStatus)
+                errorSystemStatus.innerHTML = "";
+            const currentVal = errorFilter.value;
+            errorFilter.innerHTML = '<option value="all">Todos los errores</option>';
+            tags.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.textContent = `${t.name} (${t.component})`;
+                errorFilter.appendChild(opt);
+            });
+            // Keep selection if possible
+            if ([...errorFilter.options].some(o => o.value === currentVal)) {
+                errorFilter.value = currentVal;
+            }
         }
     }
     else {
-        filterContainer.style.display = "none";
+        if (filterContainer)
+            filterContainer.style.display = "none";
         if (createTagForm)
             createTagForm.style.display = "none";
         if (errorSystemStatus) {
@@ -1275,9 +1278,10 @@ export async function loadKmSummary() {
         const existing = groupedKm.get(key);
         if (existing) {
             existing.km += r.km;
+            existing.elevation += r.elevation || 0;
         }
         else {
-            groupedKm.set(key, { bikecode: norm, km: r.km });
+            groupedKm.set(key, { bikecode: norm, km: r.km, elevation: r.elevation || 0 });
         }
     });
     const consolidatedRows = Array.from(groupedKm.values());
@@ -1292,10 +1296,13 @@ export async function loadKmSummary() {
         if (bike) {
             tr.dataset.bikeId = bike.id;
         }
+        tr.dataset.bikeCode = (bike?.bikecode ?? r.bikecode).toLowerCase();
+        tr.dataset.isActive = isActive ? "true" : "false";
         tr.innerHTML = `
       <td>${bike?.bikecode ?? r.bikecode}</td>
       <td>${bike?.motorcode ?? "—"}</td>
       <td>${r.km.toFixed(1)} km</td>
+      <td>${r.elevation.toLocaleString()} m</td>
       <td>${isActive ? '<span class="status-active">Active</span>' : '<span class="status-inactive">No active</span>'}</td>
       <td style="text-align: right; white-space: nowrap;">
         <button class="btn-weekly" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary);">Métricas</button>
@@ -1337,37 +1344,41 @@ export async function loadKmSummary() {
         };
         tbody.appendChild(tr);
     });
-    errorFilter.onchange = async () => {
-        const selectedTagId = errorFilter.value;
+    const bikeFilter = document.getElementById("bike-filter");
+    const statusFilter = document.getElementById("status-filter");
+    const applySummaryFilters = () => {
+        const bikeQuery = bikeFilter ? bikeFilter.value.trim().toLowerCase() : "";
+        const statusQuery = statusFilter ? statusFilter.value : "all"; // "all", "active", "inactive"
         const rows = tbody.querySelectorAll("tr");
-        if (selectedTagId === "all") {
-            rows.forEach(row => {
-                row.style.display = "";
-            });
-        }
-        else {
-            try {
-                const ftErrors = await context.service.getFieldTestErrors(context.selectedFTId);
-                const errorBikeIds = new Set(ftErrors
-                    .filter((e) => e.error_tags?.id === selectedTagId)
-                    .map((e) => e.bike_id));
-                rows.forEach(row => {
-                    const rHtml = row;
-                    const bikeId = rHtml.dataset.bikeId;
-                    if (bikeId && errorBikeIds.has(bikeId)) {
-                        rHtml.style.display = "";
-                    }
-                    else {
-                        rHtml.style.display = "none";
-                    }
-                });
+        rows.forEach(row => {
+            const rHtml = row;
+            const rowBikeCode = rHtml.dataset.bikeCode || "";
+            const rowIsActive = rHtml.dataset.isActive === "true";
+            let matchBike = true;
+            if (bikeQuery) {
+                matchBike = rowBikeCode.includes(bikeQuery);
             }
-            catch (err) {
-                console.error("Error filtering by error tag:", err);
+            let matchStatus = true;
+            if (statusQuery === "active") {
+                matchStatus = rowIsActive;
             }
-        }
+            else if (statusQuery === "inactive") {
+                matchStatus = !rowIsActive;
+            }
+            if (matchBike && matchStatus) {
+                rHtml.style.display = "";
+            }
+            else {
+                rHtml.style.display = "none";
+            }
+        });
     };
-    errorFilter.dispatchEvent(new Event("change"));
+    if (bikeFilter) {
+        bikeFilter.oninput = applySummaryFilters;
+    }
+    if (statusFilter) {
+        statusFilter.onchange = applySummaryFilters;
+    }
 }
 // Register loadKmSummary in context for circular imports avoidance
 context.loadKmSummary = loadKmSummary;

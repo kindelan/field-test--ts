@@ -12,6 +12,7 @@ export type FieldTestStatus =
 export interface FieldTestKmRow {
   bikecode: string;
   km: number;
+  elevation: number;
 }
 
 /* ========= SERVICE ========= */
@@ -208,7 +209,7 @@ export class FieldTestService {
     }
 
     const rides = await this.fetchAllRides();
-    const bikeSums = new Map<string, number>();
+    const bikeSums = new Map<string, { km: number; elevation: number }>();
 
     assignments.forEach((a: any) => {
       const bike = a.bikes;
@@ -237,13 +238,23 @@ export class FieldTestService {
         0
       );
 
+      const assignmentElevationSum = matchingRides.reduce(
+        (sum, r) => sum + Number(r.elevation_m || 0),
+        0
+      );
+
       const key = bikeCodeNorm;
-      bikeSums.set(key, (bikeSums.get(key) || 0) + assignmentSum);
+      const existing = bikeSums.get(key) || { km: 0, elevation: 0 };
+      bikeSums.set(key, {
+        km: existing.km + assignmentSum,
+        elevation: existing.elevation + assignmentElevationSum
+      });
     });
 
-    const rows: FieldTestKmRow[] = Array.from(bikeSums.entries()).map(([bikecode, km]) => ({
+    const rows: FieldTestKmRow[] = Array.from(bikeSums.entries()).map(([bikecode, val]) => ({
       bikecode,
-      km
+      km: val.km,
+      elevation: val.elevation
     }));
 
     const totalKm = rows.reduce((acc, r) => acc + r.km, 0);

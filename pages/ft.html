@@ -675,11 +675,19 @@
             <div id="ft-total-km" style="margin-bottom: 0;">
               <!-- Inyección dinámica -->
             </div>
-            <div id="error-filter-container" style="display: none; gap: 8px; align-items: center;">
-              <label for="error-filter" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Filtrar por error:</label>
-              <select id="error-filter" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; transition: var(--transition-all); cursor: pointer;">
-                <option value="all">Todos los errores</option>
-              </select>
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <label for="bike-filter" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Filtrar por bici:</label>
+                <input type="text" id="bike-filter" placeholder="Ej. Prob_80" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; transition: var(--transition-all); width: 120px;" />
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <label for="status-filter" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">Filtrar por estado:</label>
+                <select id="status-filter" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; transition: var(--transition-all); cursor: pointer;">
+                  <option value="all">Todos</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">No active</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -689,6 +697,7 @@
                 <th>Código de Bici</th>
                 <th>Motor</th>
                 <th>Km Recorridos</th>
+                <th>Desnivel</th>
                 <th>Estado de Bici</th>
                 <th style="text-align: right;">Acciones</th>
               </tr>

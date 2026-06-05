@@ -191,12 +191,18 @@ export class FieldTestService {
                 return rDate >= start && (!end || rDate <= end);
             });
             const assignmentSum = matchingRides.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+            const assignmentElevationSum = matchingRides.reduce((sum, r) => sum + Number(r.elevation_m || 0), 0);
             const key = bikeCodeNorm;
-            bikeSums.set(key, (bikeSums.get(key) || 0) + assignmentSum);
+            const existing = bikeSums.get(key) || { km: 0, elevation: 0 };
+            bikeSums.set(key, {
+                km: existing.km + assignmentSum,
+                elevation: existing.elevation + assignmentElevationSum
+            });
         });
-        const rows = Array.from(bikeSums.entries()).map(([bikecode, km]) => ({
+        const rows = Array.from(bikeSums.entries()).map(([bikecode, val]) => ({
             bikecode,
-            km
+            km: val.km,
+            elevation: val.elevation
         }));
         const totalKm = rows.reduce((acc, r) => acc + r.km, 0);
         return { totalKm, rows };

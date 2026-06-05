@@ -1181,10 +1181,10 @@ export async function loadKmSummary() {
   bindBasicButtons();
 
   // Load error filter select options
-  const filterContainer = document.getElementById("error-filter-container")!;
-  const errorFilter = document.getElementById("error-filter") as HTMLSelectElement;
-  const createTagForm = document.getElementById("create-tag-form") as HTMLFormElement;
-  const errorSystemStatus = document.getElementById("error-system-status") as HTMLDivElement;
+  const filterContainer = document.getElementById("error-filter-container");
+  const errorFilter = document.getElementById("error-filter") as HTMLSelectElement | null;
+  const createTagForm = document.getElementById("create-tag-form") as HTMLFormElement | null;
+  const errorSystemStatus = document.getElementById("error-system-status") as HTMLDivElement | null;
 
   let errorSystemEnabled = true;
   let tags: any[] = [];
@@ -1248,24 +1248,26 @@ export async function loadKmSummary() {
       }
     };
 
-    filterContainer.style.display = "flex";
-    if (createTagForm) createTagForm.style.display = "";
-    if (errorSystemStatus) errorSystemStatus.innerHTML = "";
+    if (filterContainer && errorFilter) {
+      filterContainer.style.display = "flex";
+      if (createTagForm) createTagForm.style.display = "";
+      if (errorSystemStatus) errorSystemStatus.innerHTML = "";
 
-    const currentVal = errorFilter.value;
-    errorFilter.innerHTML = '<option value="all">Todos los errores</option>';
-    tags.forEach(t => {
-      const opt = document.createElement("option");
-      opt.value = t.id;
-      opt.textContent = `${t.name} (${t.component})`;
-      errorFilter.appendChild(opt);
-    });
-    // Keep selection if possible
-    if ([...errorFilter.options].some(o => o.value === currentVal)) {
-      errorFilter.value = currentVal;
+      const currentVal = errorFilter.value;
+      errorFilter.innerHTML = '<option value="all">Todos los errores</option>';
+      tags.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = `${t.name} (${t.component})`;
+        errorFilter.appendChild(opt);
+      });
+      // Keep selection if possible
+      if ([...errorFilter.options].some(o => o.value === currentVal)) {
+        errorFilter.value = currentVal;
+      }
     }
   } else {
-    filterContainer.style.display = "none";
+    if (filterContainer) filterContainer.style.display = "none";
     if (createTagForm) createTagForm.style.display = "none";
     if (errorSystemStatus) {
       errorSystemStatus.innerHTML = `
@@ -1295,15 +1297,16 @@ export async function loadKmSummary() {
   );
 
   // Group res.rows by normalized code to prevent duplicate rows
-  const groupedKm = new Map<string, { bikecode: string; km: number }>();
+  const groupedKm = new Map<string, { bikecode: string; km: number; elevation: number }>();
   res.rows.forEach(r => {
     const norm = normalizeBikeCode(r.bikecode) || r.bikecode;
     const key = norm.toLowerCase();
     const existing = groupedKm.get(key);
     if (existing) {
       existing.km += r.km;
+      existing.elevation += r.elevation || 0;
     } else {
-      groupedKm.set(key, { bikecode: norm, km: r.km });
+      groupedKm.set(key, { bikecode: norm, km: r.km, elevation: r.elevation || 0 });
     }
   });
 
@@ -1321,11 +1324,14 @@ export async function loadKmSummary() {
     if (bike) {
       tr.dataset.bikeId = bike.id;
     }
+    tr.dataset.bikeCode = (bike?.bikecode ?? r.bikecode).toLowerCase();
+    tr.dataset.isActive = isActive ? "true" : "false";
 
     tr.innerHTML = `
       <td>${bike?.bikecode ?? r.bikecode}</td>
       <td>${bike?.motorcode ?? "—"}</td>
       <td>${r.km.toFixed(1)} km</td>
+      <td>${r.elevation.toLocaleString()} m</td>
       <td>${isActive ? '<span class="status-active">Active</span>' : '<span class="status-inactive">No active</span>'}</td>
       <td style="text-align: right; white-space: nowrap;">
         <button class="btn-weekly" style="padding: 4px 8px; font-size: 12px; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary);">Métricas</button>
@@ -1372,37 +1378,45 @@ export async function loadKmSummary() {
     tbody.appendChild(tr);
   });
 
-  errorFilter.onchange = async () => {
-    const selectedTagId = errorFilter.value;
+  const bikeFilter = document.getElementById("bike-filter") as HTMLInputElement | null;
+  const statusFilter = document.getElementById("status-filter") as HTMLSelectElement | null;
+
+  const applySummaryFilters = () => {
+    const bikeQuery = bikeFilter ? bikeFilter.value.trim().toLowerCase() : "";
+    const statusQuery = statusFilter ? statusFilter.value : "all"; // "all", "active", "inactive"
+
     const rows = tbody.querySelectorAll("tr");
-    if (selectedTagId === "all") {
-      rows.forEach(row => {
-        (row as HTMLElement).style.display = "";
-      });
-    } else {
-      try {
-        const ftErrors = await context.service.getFieldTestErrors(context.selectedFTId!);
-        const errorBikeIds = new Set(
-          ftErrors
-            .filter((e: any) => e.error_tags?.id === selectedTagId)
-            .map((e: any) => e.bike_id)
-        );
-        rows.forEach(row => {
-          const rHtml = row as HTMLElement;
-          const bikeId = rHtml.dataset.bikeId;
-          if (bikeId && errorBikeIds.has(bikeId)) {
-            rHtml.style.display = "";
-          } else {
-            rHtml.style.display = "none";
-          }
-        });
-      } catch (err) {
-        console.error("Error filtering by error tag:", err);
+    rows.forEach(row => {
+      const rHtml = row as HTMLElement;
+      const rowBikeCode = rHtml.dataset.bikeCode || "";
+      const rowIsActive = rHtml.dataset.isActive === "true";
+
+      let matchBike = true;
+      if (bikeQuery) {
+        matchBike = rowBikeCode.includes(bikeQuery);
       }
-    }
+
+      let matchStatus = true;
+      if (statusQuery === "active") {
+        matchStatus = rowIsActive;
+      } else if (statusQuery === "inactive") {
+        matchStatus = !rowIsActive;
+      }
+
+      if (matchBike && matchStatus) {
+        rHtml.style.display = "";
+      } else {
+        rHtml.style.display = "none";
+      }
+    });
   };
 
-  errorFilter.dispatchEvent(new Event("change"));
+  if (bikeFilter) {
+    bikeFilter.oninput = applySummaryFilters;
+  }
+  if (statusFilter) {
+    statusFilter.onchange = applySummaryFilters;
+  }
 }
 
 // Register loadKmSummary in context for circular imports avoidance
