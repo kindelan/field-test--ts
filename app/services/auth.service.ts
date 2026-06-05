@@ -28,7 +28,7 @@ export class AuthService {
       const { data, error: queryErr } = await supabase
         .from("app_admins")
         .select("email")
-        .eq("email", email)
+        .ilike("email", email.trim().toLowerCase())
         .maybeSingle();
 
       if (!queryErr && data) {

@@ -12,7 +12,7 @@ RETURNS boolean AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.app_admins 
-    WHERE email = auth.jwt() ->> 'email'
+    WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
