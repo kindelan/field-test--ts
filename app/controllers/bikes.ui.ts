@@ -51,7 +51,8 @@ export function renderBikeDetail(
     onShowHistory: () => void;
     onChangeComponent: (type: "motor" | "battery" | "hmi" | "other") => void;
     onClose: () => void;
-  }
+  },
+  canEdit: boolean = true
 ) {
   container.innerHTML = "";
   
@@ -113,25 +114,27 @@ export function renderBikeDetail(
   const actionGroup = document.createElement("div");
   actionGroup.className = "action-group";
 
-  const editBtn = document.createElement("button");
-  editBtn.className = "primary-action";
-  editBtn.innerHTML = "✏️ Editar metadatos";
-  editBtn.onclick = actions.onEditMeta;
-  actionGroup.appendChild(editBtn);
+  if (canEdit) {
+    const editBtn = document.createElement("button");
+    editBtn.className = "primary-action";
+    editBtn.innerHTML = "✏️ Editar metadatos";
+    editBtn.onclick = actions.onEditMeta;
+    actionGroup.appendChild(editBtn);
 
-  const changeComponents: { type: "motor" | "battery" | "hmi" | "other"; label: string }[] = [
-    { type: "motor", label: "🔧 Cambiar Motor" },
-    { type: "battery", label: "🔋 Cambiar Batería" },
-    { type: "hmi", label: "🖥️ Cambiar HMI" },
-    { type: "other", label: "📦 Cambiar Otros" }
-  ];
+    const changeComponents: { type: "motor" | "battery" | "hmi" | "other"; label: string }[] = [
+      { type: "motor", label: "🔧 Cambiar Motor" },
+      { type: "battery", label: "🔋 Cambiar Batería" },
+      { type: "hmi", label: "🖥️ Cambiar HMI" },
+      { type: "other", label: "📦 Cambiar Otros" }
+    ];
 
-  changeComponents.forEach(comp => {
-    const btn = document.createElement("button");
-    btn.textContent = comp.label;
-    btn.onclick = () => actions.onChangeComponent(comp.type);
-    actionGroup.appendChild(btn);
-  });
+    changeComponents.forEach(comp => {
+      const btn = document.createElement("button");
+      btn.textContent = comp.label;
+      btn.onclick = () => actions.onChangeComponent(comp.type);
+      actionGroup.appendChild(btn);
+    });
+  }
 
   const historyBtn = document.createElement("button");
   historyBtn.innerHTML = "📜 Ver Histórico";

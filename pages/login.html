@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Field Test System</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-red: #ef4444;
+      --transition-all: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Background decorative glow effects */
+    .glow-circle {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+      z-index: -1;
+      filter: blur(50px);
+    }
+    .glow-left {
+      top: -100px;
+      left: -100px;
+    }
+    .glow-right {
+      bottom: -100px;
+      right: -100px;
+    }
+
+    .login-container {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      padding: 40px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      position: relative;
+      z-index: 1;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo-container {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-container h2 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .logo-container p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition-all);
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .btn-login {
+      width: 100%;
+      background-color: var(--accent-blue);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-all);
+      margin-top: 10px;
+    }
+
+    .btn-login:hover {
+      background-color: var(--accent-blue-hover);
+    }
+
+    .btn-login:disabled {
+      background-color: var(--border-color);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+
+    /* Alerts */
+    .alert {
+      display: none;
+      background-color: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--accent-red);
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .footer-link {
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .footer-link a {
+      font-size: 13px;
+      color: var(--accent-blue);
+      text-decoration: none;
+      transition: var(--transition-all);
+    }
+
+    .footer-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-circle glow-left"></div>
+  <div class="glow-circle glow-right"></div>
+
+  <div class="login-container">
+    <div class="logo-container">
+      <h2>Mahle Field Tests</h2>
+      <p>Acceso a paneles y administración</p>
+    </div>
+
+    <div id="error-alert" class="alert"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email-input">Correo Electrónico</label>
+        <input type="email" id="email-input" placeholder="ejemplo@mahle.com" required autocomplete="username" />
+      </div>
+
+      <div class="form-group">
+        <label for="password-input">Contraseña</label>
+        <input type="password" id="password-input" placeholder="••••••••" required autocomplete="current-password" />
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn-login">Iniciar Sesión</button>
+    </form>
+
+    <div class="footer-link">
+      <a href="form.html">Ir al formulario de riders públicas</a>
+    </div>
+  </div>
+
+  <script type="module" src="../dist/app/controllers/login.controller.js"></script>
+</body>
+</html>

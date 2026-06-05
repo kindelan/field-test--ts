@@ -1,10 +1,12 @@
 import { FieldTestService } from "../../services/fieldTest.service.js";
 import { normalizeBikeCode } from "../../utils/sanitizeBikeCode.js";
+import { UserSession } from "../../services/auth.service.js";
 
 export const context = {
   service: new FieldTestService(),
   selectedFTId: null as string | null,
   selectedFTName: null as string | null,
+  userSession: null as UserSession | null,
   
   // Centralized coordinator functions to prevent circular dependencies
   loadFieldTests: async () => {},
