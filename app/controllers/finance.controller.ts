@@ -1,6 +1,7 @@
 import { requireAuth } from "../utils/authGuard.js";
 import { FinanceService } from "../services/finance.service.js";
 import { BikesService } from "../services/bikes.service.js";
+import { FieldTestService } from "../services/fieldTest.service.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   let session;
@@ -12,6 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const financeService = new FinanceService();
   const bikesService = new BikesService();
+  const fieldTestService = new FieldTestService();
 
   // Elementos del DOM
   const subtabListBtn = document.getElementById("subtab-list-btn") as HTMLButtonElement;
@@ -24,14 +26,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Formulario de Factura
   const invoiceForm = document.getElementById("invoice-form") as HTMLFormElement;
+  const selectInvoiceFt = document.getElementById("invoice-field-test") as HTMLSelectElement;
+  const bikeCheckboxesContainer = document.getElementById("bike-checkboxes") as HTMLDivElement;
   const inputNumber = document.getElementById("invoice-number") as HTMLInputElement;
   const inputProvider = document.getElementById("invoice-provider") as HTMLInputElement;
-  const inputAmount = document.getElementById("invoice-amount") as HTMLInputElement;
   const inputStartDate = document.getElementById("invoice-start-date") as HTMLInputElement;
   const inputEndDate = document.getElementById("invoice-end-date") as HTMLInputElement;
-  const bikeCheckboxesContainer = document.getElementById("bike-checkboxes") as HTMLDivElement;
+  const inputAmount = document.getElementById("invoice-amount") as HTMLInputElement;
   const inputFile = document.getElementById("invoice-file") as HTMLInputElement;
   const fileNameDisplay = document.getElementById("file-name-display") as HTMLDivElement;
+  
+  // Toggles de Panel de Registro y Cancelación
+  const btnShowRegister = document.getElementById("btn-show-register-invoice") as HTMLButtonElement;
+  const btnCancelInvoice = document.getElementById("btn-cancel-invoice") as HTMLButtonElement;
+  const registerPanel = document.getElementById("panel-register-invoice") as HTMLDivElement;
 
   // Tablas y Controles de Análisis
   const invoicesTableBody = document.querySelector("#invoices-table tbody") as HTMLTableSectionElement;
@@ -46,8 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let allBikes: any[] = [];
 
   // Restringir controles para no-administradores
-  if (!session.capabilities.canEdit) {
-    const registerPanel = document.getElementById("panel-register-invoice");
+  if (!session.capabilities.canEditData) {
     if (registerPanel) {
       registerPanel.style.display = "none";
     }
@@ -58,6 +65,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const actionHeader = document.querySelector(".admin-action-header") as HTMLElement;
     if (actionHeader) {
       actionHeader.style.display = "none";
+    }
+  } else {
+    // Si es administrador, mostrar botón de registro y ocultar panel inicialmente
+    if (btnShowRegister) {
+      btnShowRegister.style.display = "inline-flex";
+    }
+    if (registerPanel) {
+      registerPanel.style.display = "none";
+    }
+    const container = document.querySelector(".app-container");
+    if (container) {
+      container.classList.add("full-width");
     }
   }
 
@@ -85,14 +104,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // 2. CARGAR BICICLETAS
-  async function loadBikes() {
-    try {
-      allBikes = await bikesService.list();
+  // Acciones de Toggle para Registro y Cancelación
+  if (btnShowRegister && registerPanel) {
+    btnShowRegister.addEventListener("click", () => {
+      const isHidden = registerPanel.style.display === "none";
+      const container = document.querySelector(".app-container");
+      if (isHidden) {
+        registerPanel.style.display = "block";
+        if (container) {
+          container.classList.remove("full-width");
+        }
+        btnShowRegister.textContent = "Cerrar Panel";
+      } else {
+        registerPanel.style.display = "none";
+        if (container) {
+          container.classList.add("full-width");
+        }
+        btnShowRegister.textContent = "Registrar Factura";
+      }
+    });
+  }
 
-      // Rellenar checkboxes del formulario
+  if (btnCancelInvoice && registerPanel) {
+    btnCancelInvoice.addEventListener("click", () => {
+      registerPanel.style.display = "none";
+      const container = document.querySelector(".app-container");
+      if (container) {
+        container.classList.add("full-width");
+      }
+      if (btnShowRegister) {
+        btnShowRegister.textContent = "Registrar Factura";
+      }
+      invoiceForm.reset();
+      fileNameDisplay.textContent = "Ningún archivo seleccionado";
+      bikeCheckboxesContainer.innerHTML = '<span style="font-size:12px; color:var(--text-secondary);">Selecciona un Field Test primero...</span>';
+    });
+  }
+
+  // 2. CARGAR FIELD TESTS Y BICICLETAS
+  async function loadFieldTests() {
+    try {
+      const fieldTests = await fieldTestService.listFiltered("all");
+      selectInvoiceFt.innerHTML = '<option value="" disabled selected>Seleccione un Field Test...</option>';
+      fieldTests.forEach(ft => {
+        const option = document.createElement("option");
+        option.value = ft.id;
+        option.textContent = ft.name;
+        selectInvoiceFt.appendChild(option);
+      });
+    } catch (err) {
+      console.error("Error cargando Field Tests:", err);
+      alertContainerGen.innerHTML = '<div class="alert alert-error">Error cargando los Field Tests del sistema.</div>';
+    }
+  }
+
+  // Filtrado dinámico de bicicletas basado en el Field Test seleccionado
+  selectInvoiceFt.addEventListener("change", async () => {
+    const ftId = selectInvoiceFt.value;
+    if (!ftId) return;
+
+    bikeCheckboxesContainer.innerHTML = '<span style="font-size:12px; color:var(--text-secondary);">Cargando bicicletas del Field Test...</span>';
+
+    try {
+      const assignments = await fieldTestService.getBikesAssigned(ftId);
       bikeCheckboxesContainer.innerHTML = "";
-      allBikes.forEach(bike => {
+
+      if (assignments.length === 0) {
+        bikeCheckboxesContainer.innerHTML = '<span style="font-size:12px; color:var(--text-secondary);">No hay bicicletas activas en este Field Test.</span>';
+        return;
+      }
+
+      assignments.forEach((a: any) => {
+        const bike = a.bikes;
+        if (!bike) return;
+
         const label = document.createElement("label");
         label.className = "bike-checkbox-item";
         
@@ -108,6 +193,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         label.appendChild(span);
         bikeCheckboxesContainer.appendChild(label);
       });
+    } catch (err) {
+      console.error("Error cargando bicicletas asignadas:", err);
+      bikeCheckboxesContainer.innerHTML = '<span style="font-size:12px; color:var(--accent-red);">Error al cargar bicicletas.</span>';
+    }
+  });
+
+  async function loadBikes() {
+    try {
+      allBikes = await bikesService.list();
 
       // Rellenar dropdown de análisis
       selectAnalysisBike.innerHTML = '<option value="" disabled selected>Seleccione una bicicleta...</option>';
@@ -127,13 +221,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 3. CARGAR LISTADO DE FACTURAS
   async function loadInvoicesList() {
     try {
-      invoicesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Cargando facturas y telemetría...</td></tr>';
+      invoicesTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Cargando facturas y telemetría...</td></tr>';
       
       const invoices = await financeService.listInvoicesWithCalculations();
       invoicesTableBody.innerHTML = "";
 
       if (invoices.length === 0) {
-        invoicesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No hay facturas registradas.</td></tr>';
+        invoicesTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No hay facturas registradas.</td></tr>';
         return;
       }
 
@@ -144,6 +238,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tdNumber = document.createElement("td");
         tdNumber.innerHTML = `<strong>${inv.invoice_number}</strong>`;
         tr.appendChild(tdNumber);
+
+        // Field Test
+        const tdFieldTest = document.createElement("td");
+        if (inv.field_test) {
+          tdFieldTest.innerHTML = `<span class="badge badge-secondary">${inv.field_test.name}</span>`;
+        } else {
+          tdFieldTest.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin test</span>';
+        }
+        tr.appendChild(tdFieldTest);
 
         // Proveedor
         const tdProvider = document.createElement("td");
@@ -208,7 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         tr.appendChild(tdDoc);
 
         // Acciones (Eliminar)
-        if (session.capabilities.canEdit) {
+        if (session.capabilities.canEditData) {
           const tdActions = document.createElement("td");
           const btnDel = document.createElement("button");
           btnDel.className = "btn-secondary";
@@ -238,7 +341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     } catch (err: any) {
       console.error(err);
-      invoicesTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-red);">Error cargando facturas: ${err.message || err}</td></tr>`;
+      invoicesTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--accent-red);">Error cargando facturas: ${err.message || err}</td></tr>`;
     }
   }
 
@@ -256,6 +359,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   invoiceForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     alertContainerGen.innerHTML = "";
+
+    const selectedFtId = selectInvoiceFt.value;
+    if (!selectedFtId) {
+      alertContainerGen.innerHTML = '<div class="alert alert-error">Debe seleccionar un Field Test.</div>';
+      return;
+    }
 
     const checkedBoxes = document.querySelectorAll('input[name="assigned-bikes"]:checked');
     const selectedBikeIds = Array.from(checkedBoxes).map((cb: any) => cb.value);
@@ -282,7 +391,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         start_date: inputStartDate.value,
         end_date: inputEndDate.value,
         file_name: nameOfFile,
-        file_url: base64Url
+        file_url: base64Url,
+        field_test_id: selectedFtId
       };
 
       await financeService.createInvoice(input, selectedBikeIds);
@@ -290,6 +400,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura guardada correctamente.</div>';
       invoiceForm.reset();
       fileNameDisplay.textContent = "Ningún archivo seleccionado";
+      bikeCheckboxesContainer.innerHTML = '<span style="font-size:12px; color:var(--text-secondary);">Selecciona un Field Test primero...</span>';
+      
+      // Cerrar panel de registro
+      if (registerPanel) {
+        registerPanel.style.display = "none";
+      }
+      const container = document.querySelector(".app-container");
+      if (container) {
+        container.classList.add("full-width");
+      }
+      if (btnShowRegister) {
+        btnShowRegister.textContent = "Registrar Factura";
+      }
+
       loadInvoicesList();
     } catch (err: any) {
       console.error(err);
@@ -355,6 +479,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Carga Inicial
+  await loadFieldTests();
   await loadBikes();
   await loadInvoicesList();
 });
+

@@ -9,6 +9,7 @@ export interface InvoiceInput {
   end_date: string;
   file_name?: string | null;
   file_url?: string | null;
+  field_test_id?: string | null;
 }
 
 export class FinanceService {
@@ -56,6 +57,10 @@ export class FinanceService {
       .from("invoices")
       .select(`
         *,
+        field_test (
+          id,
+          name
+        ),
         invoice_bikes (
           bike_id,
           bikes (

@@ -447,14 +447,28 @@
   <!-- VIEW 1: FACTURAS Y GASTO GENERAL -->
   <div id="view-general" class="view-section">
     <div id="alert-container-gen"></div>
-    <div class="app-container">
+    <div class="app-container full-width">
       
       <!-- PANEL DE REGISTRO (SOLO ESCRITURA) -->
-      <div id="panel-register-invoice" class="panel">
+      <div id="panel-register-invoice" class="panel" style="display: none;">
         <div class="panel-header">
           <h3>Registrar Factura</h3>
         </div>
         <form id="invoice-form">
+          <div class="form-group">
+            <label for="invoice-field-test">Seleccionar Field Test</label>
+            <select id="invoice-field-test" required>
+              <option value="" disabled selected>Cargando Field Tests...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Asignar a Bicicletas</label>
+            <div id="bike-checkboxes" class="bike-selector-box">
+              <span style="font-size:12px; color:var(--text-secondary);">Selecciona un Field Test primero...</span>
+            </div>
+          </div>
+
           <div class="form-group">
             <label for="invoice-number">Número de Factura</label>
             <input type="text" id="invoice-number" placeholder="Ej. FT-2026-004" required />
@@ -463,11 +477,6 @@
           <div class="form-group">
             <label for="invoice-provider">Proveedor / Concepto</label>
             <input type="text" id="invoice-provider" placeholder="Ej. Taller Bicicletas SL" required />
-          </div>
-
-          <div class="form-group">
-            <label for="invoice-amount">Importe Total (€)</label>
-            <input type="number" id="invoice-amount" min="0" step="0.01" placeholder="Ej. 250.00" required />
           </div>
 
           <div class="form-group">
@@ -481,14 +490,12 @@
           </div>
 
           <div class="form-group">
-            <label>Asignar a Bicicletas</label>
-            <div id="bike-checkboxes" class="bike-selector-box">
-              <span style="font-size:12px; color:var(--text-secondary);">Cargando bicicletas...</span>
-            </div>
+            <label for="invoice-amount">Importe Total (€)</label>
+            <input type="number" id="invoice-amount" min="0" step="0.01" placeholder="Ej. 250.00" required />
           </div>
 
           <div class="form-group">
-            <label for="invoice-file">Subir Documento (PDF/Imagen)</label>
+            <label for="invoice-file">Subir Documento (PDF/Imagen) - Opcional</label>
             <div class="file-input-wrapper">
               <input type="file" id="invoice-file" accept=".pdf,image/*" />
               <div id="file-name-display" class="file-input-name">Ningún archivo seleccionado</div>
@@ -496,6 +503,7 @@
           </div>
 
           <button type="submit" class="btn-submit">Guardar Factura</button>
+          <button type="button" id="btn-cancel-invoice" class="btn-secondary" style="width: 100%; margin-top: 10px;">Cancelar</button>
         </form>
       </div>
 
@@ -503,12 +511,14 @@
       <div class="panel" style="grid-column: span 1;">
         <div class="panel-header">
           <h3>Historial de Facturas</h3>
+          <button id="btn-show-register-invoice" class="btn-submit" style="width: auto; padding: 8px 16px; font-size: 13px; display: none;">Registrar Factura</button>
         </div>
         <div style="overflow-x: auto;">
           <table id="invoices-table">
             <thead>
               <tr>
                 <th>Factura</th>
+                <th>Field Test</th>
                 <th>Proveedor</th>
                 <th>Importe</th>
                 <th>Periodo</th>
@@ -519,7 +529,7 @@
             </thead>
             <tbody>
               <tr>
-                <td colspan="7" style="text-align: center; color: var(--text-secondary);">Cargando facturas...</td>
+                <td colspan="8" style="text-align: center; color: var(--text-secondary);">Cargando facturas...</td>
               </tr>
             </tbody>
           </table>

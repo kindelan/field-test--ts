@@ -41,6 +41,10 @@ export class FinanceService {
             .from("invoices")
             .select(`
         *,
+        field_test (
+          id,
+          name
+        ),
         invoice_bikes (
           bike_id,
           bikes (
