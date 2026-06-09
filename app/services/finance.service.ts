@@ -75,10 +75,33 @@ export class FinanceService {
     return data || [];
   }
 
-  async createInvoice(invoice: InvoiceInput, bikeIds: string[]): Promise<any> {
+  async createInvoice(invoice: Omit<InvoiceInput, "file_url">, bikeIds: string[], file?: File | null): Promise<any> {
+    let fileUrl: string | null = null;
+    
+    if (file) {
+      const fileExt = file.name.split('.').pop();
+      const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("invoices")
+        .upload(uniqueFileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("invoices")
+        .getPublicUrl(uniqueFileName);
+      
+      fileUrl = urlData.publicUrl;
+    }
+
+    const invoiceData = {
+      ...invoice,
+      file_url: fileUrl
+    };
+
     const { data, error } = await supabase
       .from("invoices")
-      .insert(invoice)
+      .insert(invoiceData)
       .select()
       .single();
 
@@ -101,6 +124,28 @@ export class FinanceService {
   }
 
   async deleteInvoice(id: string): Promise<void> {
+    // 1. Obtener la factura para ver si tiene un archivo en Storage
+    const { data: invoice, error: getError } = await supabase
+      .from("invoices")
+      .select("file_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!getError && invoice && invoice.file_url) {
+      try {
+        const parts = invoice.file_url.split("/");
+        const storageFileName = parts[parts.length - 1];
+        if (storageFileName) {
+          await supabase.storage
+            .from("invoices")
+            .remove([storageFileName]);
+        }
+      } catch (err) {
+        console.error("Error al borrar el archivo del storage:", err);
+      }
+    }
+
+    // 2. Eliminar el registro de la base de datos
     const { error } = await supabase
       .from("invoices")
       .delete()
@@ -202,6 +247,70 @@ export class FinanceService {
       bikeId,
       bikeCode,
       totalAllocatedAmount,
+      totalKm,
+      avgCostPerKm,
+      invoices: invoiceDetails
+    };
+  }
+
+  async getFieldTestFinanceSummary(fieldTestId: string): Promise<any> {
+    // 1. Obtener todas las facturas asociadas a este Field Test
+    const { data: invoices, error } = await supabase
+      .from("invoices")
+      .select(`
+        *,
+        invoice_bikes (
+          bike_id,
+          bikes (
+            id,
+            bikecode
+          )
+        )
+      `)
+      .eq("field_test_id", fieldTestId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    if (!invoices || invoices.length === 0) {
+      return {
+        fieldTestId,
+        totalAmount: 0,
+        totalKm: 0,
+        avgCostPerKm: null,
+        invoices: []
+      };
+    }
+
+    // 2. Calcular los detalles de cada factura
+    let totalAmount = 0;
+    let totalKm = 0;
+
+    const invoiceDetails = await Promise.all(invoices.map(async (inv: any) => {
+      const details = await this.getInvoiceDetails(inv);
+      const amount = Number(inv.amount || 0);
+      totalAmount += amount;
+
+      // Sumar los kilómetros de todas las bicicletas asociadas a esta factura en su periodo
+      const invKm = (details.bikesCalculated || []).reduce((sum: number, b: any) => sum + Number(b.km || 0), 0);
+      totalKm += invKm;
+
+      return {
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        provider: inv.provider,
+        amount: inv.amount,
+        start_date: inv.start_date,
+        end_date: inv.end_date,
+        km: invKm,
+        bikesCalculated: details.bikesCalculated
+      };
+    }));
+
+    const avgCostPerKm = totalKm > 0 ? totalAmount / totalKm : null;
+
+    return {
+      fieldTestId,
+      totalAmount,
       totalKm,
       avgCostPerKm,
       invoices: invoiceDetails

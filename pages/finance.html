@@ -442,6 +442,7 @@
   <div class="sub-tabs">
     <button id="subtab-list-btn" class="sub-tab-btn active">Facturas y Gasto General</button>
     <button id="subtab-bike-btn" class="sub-tab-btn">Análisis por Bicicleta</button>
+    <button id="subtab-ft-btn" class="sub-tab-btn">Análisis por Field Test</button>
   </div>
 
   <!-- VIEW 1: FACTURAS Y GASTO GENERAL -->
@@ -590,6 +591,65 @@
             <tbody>
               <tr>
                 <td colspan="7" style="text-align: center; color: var(--text-secondary);">Selecciona una bicicleta de arriba</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW 3: ANÁLISIS POR FIELD TEST -->
+  <div id="view-ft-analysis" class="view-section" style="display: none;">
+    <div id="alert-container-ft"></div>
+    
+    <div class="panel" style="margin-bottom: 25px;">
+      <div class="form-group" style="max-width: 300px; margin-bottom: 0;">
+        <label for="select-analysis-ft">Seleccionar Field Test</label>
+        <select id="select-analysis-ft">
+          <option value="" disabled selected>Seleccione un Field Test...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SUMMARY SECTION -->
+    <div id="ft-summary-section" style="display: none;">
+      
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-title">Gasto Total Acumulado</span>
+          <span id="kpi-ft-total-cost" class="kpi-value amber">0.00 €</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-title">Kilómetros en Periodos</span>
+          <span id="kpi-ft-total-km" class="kpi-value cyan">0.0 km</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-title">Costo Medio por Kilómetro</span>
+          <span id="kpi-ft-avg-cost-km" class="kpi-value green">—</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Historial Económico del Field Test</h3>
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="ft-invoices-table">
+            <thead>
+              <tr>
+                <th>Factura</th>
+                <th>Proveedor</th>
+                <th>Importe</th>
+                <th>Periodo de la Factura</th>
+                <th>Desglose de Bicicletas / Km / Costo</th>
+                <th>Km Totales</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-secondary);">Selecciona un Field Test de arriba</td>
               </tr>
             </tbody>
           </table>

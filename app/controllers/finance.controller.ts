@@ -18,11 +18,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Elementos del DOM
   const subtabListBtn = document.getElementById("subtab-list-btn") as HTMLButtonElement;
   const subtabBikeBtn = document.getElementById("subtab-bike-btn") as HTMLButtonElement;
+  const subtabFtBtn = document.getElementById("subtab-ft-btn") as HTMLButtonElement;
+  
   const viewGeneral = document.getElementById("view-general") as HTMLDivElement;
   const viewBikeAnalysis = document.getElementById("view-bike-analysis") as HTMLDivElement;
+  const viewFtAnalysis = document.getElementById("view-ft-analysis") as HTMLDivElement;
 
   const alertContainerGen = document.getElementById("alert-container-gen") as HTMLDivElement;
   const alertContainerBike = document.getElementById("alert-container-bike") as HTMLDivElement;
+  const alertContainerFt = document.getElementById("alert-container-ft") as HTMLDivElement;
 
   // Formulario de Factura
   const invoiceForm = document.getElementById("invoice-form") as HTMLFormElement;
@@ -50,6 +54,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const kpiTotalKm = document.getElementById("kpi-total-km") as HTMLSpanElement;
   const kpiAvgCostKm = document.getElementById("kpi-avg-cost-km") as HTMLSpanElement;
   const bikeInvoicesTableBody = document.querySelector("#bike-invoices-table tbody") as HTMLTableSectionElement;
+
+  const selectAnalysisFt = document.getElementById("select-analysis-ft") as HTMLSelectElement;
+  const ftSummarySection = document.getElementById("ft-summary-section") as HTMLDivElement;
+  const kpiFtTotalCost = document.getElementById("kpi-ft-total-cost") as HTMLSpanElement;
+  const kpiFtTotalKm = document.getElementById("kpi-ft-total-km") as HTMLSpanElement;
+  const kpiFtAvgCostKm = document.getElementById("kpi-ft-avg-cost-km") as HTMLSpanElement;
+  const ftInvoicesTableBody = document.querySelector("#ft-invoices-table tbody") as HTMLTableSectionElement;
 
   let allBikes: any[] = [];
 
@@ -84,15 +95,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   subtabListBtn.addEventListener("click", () => {
     subtabListBtn.classList.add("active");
     subtabBikeBtn.classList.remove("active");
+    subtabFtBtn.classList.remove("active");
     viewGeneral.style.display = "block";
     viewBikeAnalysis.style.display = "none";
+    viewFtAnalysis.style.display = "none";
   });
 
   subtabBikeBtn.addEventListener("click", () => {
     subtabBikeBtn.classList.add("active");
     subtabListBtn.classList.remove("active");
+    subtabFtBtn.classList.remove("active");
     viewGeneral.style.display = "none";
     viewBikeAnalysis.style.display = "block";
+    viewFtAnalysis.style.display = "none";
+  });
+
+  subtabFtBtn.addEventListener("click", () => {
+    subtabFtBtn.classList.add("active");
+    subtabListBtn.classList.remove("active");
+    subtabBikeBtn.classList.remove("active");
+    viewGeneral.style.display = "none";
+    viewBikeAnalysis.style.display = "none";
+    viewFtAnalysis.style.display = "block";
   });
 
   // Mostrar el nombre del archivo seleccionado
@@ -145,12 +169,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function loadFieldTests() {
     try {
       const fieldTests = await fieldTestService.listFiltered("all");
+      
+      // Rellenar dropdown de facturación
       selectInvoiceFt.innerHTML = '<option value="" disabled selected>Seleccione un Field Test...</option>';
       fieldTests.forEach(ft => {
         const option = document.createElement("option");
         option.value = ft.id;
         option.textContent = ft.name;
         selectInvoiceFt.appendChild(option);
+      });
+
+      // Rellenar dropdown de análisis
+      selectAnalysisFt.innerHTML = '<option value="" disabled selected>Seleccione un Field Test...</option>';
+      fieldTests.forEach(ft => {
+        const option = document.createElement("option");
+        option.value = ft.id;
+        option.textContent = ft.name;
+        selectAnalysisFt.appendChild(option);
       });
     } catch (err) {
       console.error("Error cargando Field Tests:", err);
@@ -284,24 +319,30 @@ document.addEventListener("DOMContentLoaded", async () => {
           a.className = "doc-link";
           a.textContent = "📄 Ver Factura";
           a.onclick = () => {
-            const win = window.open();
-            if (win) {
-              const fileContent = inv.file_url;
-              const title = inv.file_name || "Documento";
-              win.document.write(`
-                <html>
-                  <head>
-                    <title>${title}</title>
-                    <style>body { margin: 0; background: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style>
-                  </head>
-                  <body>
-                    ${fileContent.startsWith("data:application/pdf")
-                      ? `<embed src="${fileContent}" type="application/pdf" width="100%" height="100%"/>`
-                      : `<img src="${fileContent}" style="max-width:100%; max-height:100%; object-fit:contain;"/>`}
-                  </body>
-                </html>
-              `);
-              win.document.close();
+            const fileContent = inv.file_url;
+            if (fileContent.startsWith("data:")) {
+              // Retrocompatibilidad para facturas antiguas en Base64
+              const win = window.open();
+              if (win) {
+                const title = inv.file_name || "Documento";
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>${title}</title>
+                      <style>body { margin: 0; background: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style>
+                    </head>
+                    <body>
+                      ${fileContent.startsWith("data:application/pdf")
+                        ? `<embed src="${fileContent}" type="application/pdf" width="100%" height="100%"/>`
+                        : `<img src="${fileContent}" style="max-width:100%; max-height:100%; object-fit:contain;"/>`}
+                    </body>
+                  </html>
+                `);
+                win.document.close();
+              }
+            } else {
+              // Nuevas URLs de Supabase Storage: abrir en pestaña nueva usando visor nativo
+              window.open(fileContent, '_blank');
             }
           };
           tdDoc.appendChild(a);
@@ -345,16 +386,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Helper para leer archivos como Base64
-  function readFileAsBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-      reader.readAsDataURL(file);
-    });
-  }
-
   // 4. GUARDAR FACTURA
   invoiceForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -376,13 +407,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const file = inputFile.files && inputFile.files[0] ? inputFile.files[0] : null;
-      let base64Url: string | null = null;
-      let nameOfFile: string | null = null;
-
-      if (file) {
-        base64Url = await readFileAsBase64(file);
-        nameOfFile = file.name;
-      }
 
       const input = {
         invoice_number: inputNumber.value.trim(),
@@ -390,12 +414,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         amount: Number(inputAmount.value),
         start_date: inputStartDate.value,
         end_date: inputEndDate.value,
-        file_name: nameOfFile,
-        file_url: base64Url,
+        file_name: file ? file.name : null,
         field_test_id: selectedFtId
       };
 
-      await financeService.createInvoice(input, selectedBikeIds);
+      await financeService.createInvoice(input, selectedBikeIds, file);
 
       alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura guardada correctamente.</div>';
       invoiceForm.reset();
@@ -475,6 +498,65 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error(err);
       alertContainerBike.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${err.message || err}</div>`;
       bikeInvoicesTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-red);">Error: ${err.message || err}</td></tr>`;
+    }
+  });
+
+  // 6. ANÁLISIS POR FIELD TEST
+  selectAnalysisFt.addEventListener("change", async () => {
+    alertContainerFt.innerHTML = "";
+    const ftId = selectAnalysisFt.value;
+
+    if (!ftId) {
+      ftSummarySection.style.display = "none";
+      return;
+    }
+
+    try {
+      ftInvoicesTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Analizando facturas y telemetría...</td></tr>';
+      ftSummarySection.style.display = "block";
+
+      const summary = await financeService.getFieldTestFinanceSummary(ftId);
+
+      // KPIs
+      kpiFtTotalCost.textContent = `${Number(summary.totalAmount).toFixed(2)} €`;
+      kpiFtTotalKm.textContent = `${Number(summary.totalKm).toFixed(1)} km`;
+      
+      if (summary.avgCostPerKm !== null) {
+        kpiFtAvgCostKm.textContent = `${Number(summary.avgCostPerKm).toFixed(2)} €/km`;
+      } else {
+        kpiFtAvgCostKm.textContent = "—";
+      }
+
+      // Detalle de la tabla
+      ftInvoicesTableBody.innerHTML = "";
+      if (summary.invoices.length === 0) {
+        ftInvoicesTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No hay facturas asignadas a este Field Test.</td></tr>';
+        return;
+      }
+
+      summary.invoices.forEach((inv: any) => {
+        const tr = document.createElement("tr");
+
+        const breakdownText = (inv.bikesCalculated || []).map((b: any) => {
+          const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km</span>';
+          return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
+        }).join("");
+
+        tr.innerHTML = `
+          <td><strong>${inv.invoice_number}</strong></td>
+          <td>${inv.provider}</td>
+          <td>${Number(inv.amount).toFixed(2)} €</td>
+          <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
+          <td>${breakdownText || '<span style="color: var(--text-secondary); font-style: italic;">Sin desglose</span>'}</td>
+          <td><strong>${Number(inv.km).toFixed(1)} km</strong></td>
+        `;
+
+        ftInvoicesTableBody.appendChild(tr);
+      });
+    } catch (err: any) {
+      console.error(err);
+      alertContainerFt.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${err.message || err}</div>`;
+      ftInvoicesTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--accent-red);">Error: ${err.message || err}</td></tr>`;
     }
   });
 
