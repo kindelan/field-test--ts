@@ -56,6 +56,23 @@ function normalizeCompletionDate(raw: any): string | null {
   return s;
 }
 
+function getVal(row: any, ...keys: string[]): any {
+  if (!row) return null;
+  const normalizedRow: Record<string, any> = {};
+  for (const k of Object.keys(row)) {
+    const cleanKey = k.replace(/\s+/g, " ").trim().toLowerCase();
+    normalizedRow[cleanKey] = row[k];
+  }
+
+  for (const key of keys) {
+    const cleanKey = key.replace(/\s+/g, " ").trim().toLowerCase();
+    if (normalizedRow[cleanKey] !== undefined) {
+      return normalizedRow[cleanKey];
+    }
+  }
+  return null;
+}
+
 /* =========================================================
    SANITIZER (LOCAL, SIMPLE, SIN FILTRAR)
 ========================================================= */
