@@ -117,8 +117,9 @@ function getVal(row: any, ...keys: string[]): any {
 
   for (const key of keys) {
     const cleanKey = key.replace(/\s+/g, " ").trim().toLowerCase();
-    if (normalizedRow[cleanKey] !== undefined) {
-      return normalizedRow[cleanKey];
+    const val = normalizedRow[cleanKey];
+    if (val !== undefined && val !== null && String(val).trim() !== "") {
+      return val;
     }
   }
   return null;
