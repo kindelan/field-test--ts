@@ -120,33 +120,59 @@ serve(async (req) => {
       .select("*", { count: "exact", head: true });
 
     const inserts = rows.map((r: any) => {
-      const bike_code_raw =
-        r["Bike Code"] ?? r["Bike code2"] ?? null;
+      const bike_code_raw = getVal(r, "Bike Code", "Bike code2", "Bike");
 
       const bike_code_sanitized =
         normalizeBikeCode(bike_code_raw) ?? bike_code_raw;
 
-      const completion_date_txt = normalizeCompletionDate(r["Completion time"]) ?? null;
-      const ride_date_raw = r["Ride date"] ?? null;
+      const completion_date_txt = normalizeCompletionDate(
+        getVal(r, "Completion time", "Completion date", "Date")
+      ) ?? null;
+
+      const ride_date_raw = getVal(r, "Ride date", "Date", "Ride_date");
       const ride_date_txt = (ride_date_raw !== null && String(ride_date_raw).trim() !== "")
         ? String(ride_date_raw).trim()
         : completion_date_txt;
 
+      const motor_type = getVal(r, "Motor type", "Motor");
+
+      const distance_km = toNumber(
+        getVal(
+          r,
+          "Distance ridden / Distancia",
+          "Distance ridden/Distancia",
+          "Distance ridden",
+          "Distance (km)",
+          "Distancia (km)",
+          "Distance",
+          "Distancia"
+        )
+      );
+
+      const elevation_m = toNumber(
+        getVal(
+          r,
+          "elevation / Desnivel positive",
+          "elevation / Desnivel positivo",
+          "elevation/Desnivel positive",
+          "elevation/Desnivel positivo",
+          "elevation",
+          "Desnivel",
+          "Desnivel positivo",
+          "Desnivel positive",
+          "Elevation (m)",
+          "Desnivel (m)"
+        )
+      );
+
       return {
         ride_date_txt,
         completion_date_txt,
-        motor_type: r["Motor type"] ?? null,
+        motor_type,
         bike_code: bike_code_sanitized,
         bike_code_sanitized,
-        distance_km: toNumber(
-          r["Distance ridden"] ??
-          r["Distance ridden / Distancia"]
-        ),
-        elevation_m: toNumber(
-          r["elevation"] ??
-          r["elevation / Desnivel positive"] ??
-          r["elevation / Desnivel positivo"]
-        ),
+        distance_km,
+        elevation_m,
       };
     });
 
