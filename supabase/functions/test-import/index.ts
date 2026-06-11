@@ -13,29 +13,80 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
 };
 
-function toNumber(v: any): number | null {
+function parseDistance(v: any): number | null {
   if (v === null || v === undefined) return null;
-
   let s = String(v).trim();
+  if (s === "") return null;
 
-  // Quitar texto y unidades (km, m, espacios, etc.)
-  s = s.replace(/[^\d.,]/g, "");
+  // Extract first numeric sequence
+  const match = s.match(/[\d.,'’‘`´]+/);
+  if (!match) return null;
 
-  // Caso con coma y punto
-  if (s.includes(",") && s.includes(".")) {
-    // Europeo: 1.234,56
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
-      s = s.replace(/\./g, "").replace(",", ".");
+  let numStr = match[0].replace(/[’'‘`´]/g, ".");
+
+  if (numStr.includes(",") && numStr.includes(".")) {
+    if (numStr.lastIndexOf(",") > numStr.lastIndexOf(".")) {
+      numStr = numStr.replace(/\./g, "").replace(",", ".");
     } else {
-      // USA: 1,234.56
-      s = s.replace(/,/g, "");
+      numStr = numStr.replace(/,/g, "");
     }
-  } else {
-    // Solo coma → decimal europeo
-    s = s.replace(",", ".");
+  } else if (numStr.includes(",")) {
+    const commaCount = (numStr.match(/,/g) || []).length;
+    if (commaCount > 1) {
+      numStr = numStr.replace(/,/g, "");
+    } else {
+      numStr = numStr.replace(",", ".");
+    }
+  } else if (numStr.includes(".")) {
+    const dotCount = (numStr.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      numStr = numStr.replace(/\./g, "");
+    }
   }
 
-  const n = Number(s);
+  const n = Number(numStr);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseElevation(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  let s = String(v).trim();
+  if (s === "") return null;
+
+  // Extract first numeric sequence
+  const match = s.match(/[\d.,'’‘`´]+/);
+  if (!match) return null;
+
+  let numStr = match[0].replace(/[’'‘`´]/g, ".");
+
+  if (numStr.includes(",") && numStr.includes(".")) {
+    if (numStr.lastIndexOf(",") > numStr.lastIndexOf(".")) {
+      numStr = numStr.replace(/\./g, "").replace(",", ".");
+    } else {
+      numStr = numStr.replace(/,/g, "");
+    }
+  } else {
+    const hasComma = numStr.includes(",");
+    const hasDot = numStr.includes(".");
+    const separator = hasComma ? "," : ".";
+    const separatorCount = (numStr.match(new RegExp("\\" + separator, "g")) || []).length;
+
+    if (separatorCount > 1) {
+      numStr = numStr.replace(new RegExp("\\" + separator, "g"), "");
+    } else if (separatorCount === 1) {
+      const parts = numStr.split(separator);
+      const integerPart = parts[0];
+      const decimalPart = parts[1];
+
+      if (decimalPart.length === 3 && Number(integerPart) < 100) {
+        numStr = integerPart + decimalPart;
+      } else {
+        numStr = integerPart + "." + decimalPart;
+      }
+    }
+  }
+
+  const n = Number(numStr);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -77,95 +128,14 @@ serve(async (req) => {
   }
 
   try {
-    const rows = await req.json();
-
-    // ✅ CONTAR ANTES
-    const { count: before } = await supabase
+    const { data: rides80, error } = await supabase
       .from("test_ride_log")
-      .select("*", { count: "exact", head: true });
-
-    // ✅ PREPARAR INSERTS
-    const inserts = rows.map((r: any) => {
-      const bike_code_raw = getVal(r, "Bike Code", "Bike code2", "Bike");
-      const completion_date_txt = normalizeCompletionDate(
-        getVal(r, "Completion time", "Completion date", "Date")
-      ) ?? null;
-
-      const ride_date_raw = getVal(r, "Ride date", "Date", "Ride_date");
-      const ride_date_txt = (ride_date_raw !== null && String(ride_date_raw).trim() !== "")
-        ? String(ride_date_raw).trim()
-        : completion_date_txt;
-
-      const motor_type = getVal(r, "Motor type", "Motor");
-
-      const distance_km = toNumber(
-        getVal(
-          r,
-          "Distance ridden / Distancia",
-          "Distance ridden/Distancia",
-          "Distance ridden",
-          "Distance (km)",
-          "Distancia (km)",
-          "Distance",
-          "Distancia"
-        )
-      );
-
-      const elevation_m = toNumber(
-        getVal(
-          r,
-          "elevation / Desnivel positive",
-          "elevation / Desnivel positivo",
-          "elevation/Desnivel positive",
-          "elevation/Desnivel positivo",
-          "elevation",
-          "Desnivel",
-          "Desnivel positivo",
-          "Desnivel positive",
-          "Elevation (m)",
-          "Desnivel (m)"
-        )
-      );
-
-      return {
-        ride_date_txt,
-        completion_date_txt,
-        motor_type,
-        bike_code: bike_code_raw,
-        distance_km,
-        elevation_m,
-      };
-    });
-
-    // ✅ UPSERT ROBUSTO (DEDUPLICA)
-    const { error } = await supabase
-      .from("test_ride_log")
-      .upsert(inserts, {
-        onConflict: "completion_date_txt,motor_type,bike_code",
-        ignoreDuplicates: true,
-      });
-
-    if (error) {
-      return new Response(JSON.stringify(error), {
-        status: 500,
-        headers: corsHeaders,
-      });
-    }
-
-    // ✅ CONTAR DESPUÉS
-    const { count: after } = await supabase
-      .from("test_ride_log")
-      .select("*", { count: "exact", head: true });
-
+      .select("*")
+      .ilike("bike_code", "%80%");
     return new Response(
-      JSON.stringify({
-        ok: true,
-        attempted: inserts.length,
-        inserted: (after ?? 0) - (before ?? 0),
-      }),
+      JSON.stringify({ ok: true, rides80, error }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (err) {
     return new Response(
       JSON.stringify({ ok: false, error: String(err) }),

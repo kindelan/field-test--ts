@@ -16,29 +16,80 @@ const corsHeaders = {
 };
 
 
-function toNumber(v: any): number | null {
+function parseDistance(v: any): number | null {
   if (v === null || v === undefined) return null;
-
   let s = String(v).trim();
+  if (s === "") return null;
 
-  // Quitar texto y unidades (km, m, espacios, etc.)
-  s = s.replace(/[^\d.,]/g, "");
+  // Extract first numeric sequence
+  const match = s.match(/[\d.,'’‘`´]+/);
+  if (!match) return null;
 
-  // Caso con coma y punto
-  if (s.includes(",") && s.includes(".")) {
-    // Europeo: 1.234,56
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
-      s = s.replace(/\./g, "").replace(",", ".");
+  let numStr = match[0].replace(/[’'‘`´]/g, ".");
+
+  if (numStr.includes(",") && numStr.includes(".")) {
+    if (numStr.lastIndexOf(",") > numStr.lastIndexOf(".")) {
+      numStr = numStr.replace(/\./g, "").replace(",", ".");
     } else {
-      // USA: 1,234.56
-      s = s.replace(/,/g, "");
+      numStr = numStr.replace(/,/g, "");
     }
-  } else {
-    // Solo coma → decimal europeo
-    s = s.replace(",", ".");
+  } else if (numStr.includes(",")) {
+    const commaCount = (numStr.match(/,/g) || []).length;
+    if (commaCount > 1) {
+      numStr = numStr.replace(/,/g, "");
+    } else {
+      numStr = numStr.replace(",", ".");
+    }
+  } else if (numStr.includes(".")) {
+    const dotCount = (numStr.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      numStr = numStr.replace(/\./g, "");
+    }
   }
 
-  const n = Number(s);
+  const n = Number(numStr);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseElevation(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  let s = String(v).trim();
+  if (s === "") return null;
+
+  // Extract first numeric sequence
+  const match = s.match(/[\d.,'’‘`´]+/);
+  if (!match) return null;
+
+  let numStr = match[0].replace(/[’'‘`´]/g, ".");
+
+  if (numStr.includes(",") && numStr.includes(".")) {
+    if (numStr.lastIndexOf(",") > numStr.lastIndexOf(".")) {
+      numStr = numStr.replace(/\./g, "").replace(",", ".");
+    } else {
+      numStr = numStr.replace(/,/g, "");
+    }
+  } else {
+    const hasComma = numStr.includes(",");
+    const hasDot = numStr.includes(".");
+    const separator = hasComma ? "," : ".";
+    const separatorCount = (numStr.match(new RegExp("\\" + separator, "g")) || []).length;
+
+    if (separatorCount > 1) {
+      numStr = numStr.replace(new RegExp("\\" + separator, "g"), "");
+    } else if (separatorCount === 1) {
+      const parts = numStr.split(separator);
+      const integerPart = parts[0];
+      const decimalPart = parts[1];
+
+      if (decimalPart.length === 3 && Number(integerPart) < 100) {
+        numStr = integerPart + decimalPart;
+      } else {
+        numStr = integerPart + "." + decimalPart;
+      }
+    }
+  }
+
+  const n = Number(numStr);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -153,7 +204,7 @@ serve(async (req) => {
 
       const motor_type = getVal(r, "Motor type", "Motor");
 
-      const distance_km = toNumber(
+      const distance_km = parseDistance(
         getVal(
           r,
           "Distance ridden / Distancia",
@@ -166,7 +217,7 @@ serve(async (req) => {
         )
       );
 
-      const elevation_m = toNumber(
+      const elevation_m = parseElevation(
         getVal(
           r,
           "elevation / Desnivel positive",
