@@ -21,6 +21,8 @@ http.createServer((req, res) => {
     filePath = './pages/import.html';
   } else if (cleanUrl === '/form' || cleanUrl === '/form.html') {
     filePath = './pages/form.html';
+  } else if (cleanUrl === '/questions' || cleanUrl === '/questions.html') {
+    filePath = './pages/questions.html';
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();

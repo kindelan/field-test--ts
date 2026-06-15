@@ -55,7 +55,8 @@ export class RideLogDAO {
         steep_terrain_perception: dto.steep_terrain_perception ?? null,
         technical_terrain_assistance: dto.technical_terrain_assistance ?? null,
         technical_terrain_perception: dto.technical_terrain_perception ?? null,
-        suggested_improvements: dto.suggested_improvements ?? null
+        suggested_improvements: dto.suggested_improvements ?? null,
+        answers: dto.answers ?? {}
       });
 
     if (error) {

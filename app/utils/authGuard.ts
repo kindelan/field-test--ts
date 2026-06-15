@@ -30,7 +30,7 @@ export async function requireAuth(dashboardOnly: boolean = true): Promise<UserSe
     const navLinks = document.querySelectorAll(".nav-container a");
     navLinks.forEach(link => {
       const href = link.getAttribute("href");
-      if (href && (href.includes("bikes.html") || href.includes("ft.html") || href.includes("import.html") || href.includes("finance.html"))) {
+      if (href && (href.includes("bikes.html") || href.includes("ft.html") || href.includes("import.html") || href.includes("finance.html") || href.includes("questions.html"))) {
         (link as HTMLElement).style.display = "none";
       }
     });

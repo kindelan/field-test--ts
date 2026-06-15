@@ -18,6 +18,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const resolvedMotorSpan = document.getElementById("resolved-motor-type") as HTMLSpanElement;
   const statusDiv = document.getElementById("form-status") as HTMLDivElement;
 
+  const dynamicTelemetry = document.getElementById("dynamic-telemetry-fields") as HTMLDivElement;
+  const dynamicMotor = document.getElementById("dynamic-motor-fields") as HTMLDivElement;
+  const dynamicTerrain = document.getElementById("dynamic-terrain-fields") as HTMLDivElement;
+
   // Set today's date as default in date input
   const today = new Date().toISOString().split("T")[0];
   rideDateInput.value = today;
@@ -44,6 +48,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       bikeSelect.innerHTML = '<option value="" disabled selected>Select a Field Test first in Tab 1...</option>';
       bikeSelect.disabled = true;
       updateMotorType();
+      clearDynamicFields();
       return;
     }
 
@@ -52,6 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateMotorType();
 
     try {
+      // 1. Load bikes
       const bikes = await service.getBikesByFieldTest(fieldTestId);
       bikeSelect.innerHTML = '';
       
@@ -80,12 +86,187 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         bikeSelect.disabled = false;
       }
+
+      // 2. Load dynamic questions
+      await loadDynamicQuestions(fieldTestId);
     } catch (err) {
-      console.error("Error loading bikes for field test:", err);
-      bikeSelect.innerHTML = '<option value="" disabled selected>Error loading bikes</option>';
+      console.error("Error loading bikes or questions for field test:", err);
+      bikeSelect.innerHTML = '<option value="" disabled selected>Error loading data</option>';
       bikeSelect.disabled = true;
     }
   });
+
+  // Helper to clear dynamic fields
+  function clearDynamicFields() {
+    dynamicTelemetry.innerHTML = "";
+    dynamicMotor.innerHTML = "";
+    dynamicTerrain.innerHTML = "";
+  }
+
+  // Fetch and render dynamic questions
+  async function loadDynamicQuestions(fieldTestId: string) {
+    clearDynamicFields();
+    try {
+      const questions = await service.getReviewQuestions(fieldTestId);
+
+      questions.forEach((q) => {
+        // Group container
+        const group = document.createElement("div");
+        group.className = `form-group ${q.is_required ? "required" : ""} ${
+          q.input_type === "textarea" || q.parent_question_key ? "full-width" : ""
+        }`;
+        group.setAttribute("data-key", q.question_key);
+        if (q.parent_question_key) {
+          group.setAttribute("data-parent", q.parent_question_key);
+          group.setAttribute("data-trigger", q.parent_trigger_value || "");
+          group.style.display = "none";
+        }
+
+        // Label
+        const label = document.createElement("label");
+        label.textContent = q.label;
+        if (q.is_required) {
+          const span = document.createElement("span");
+          span.className = "required";
+          span.textContent = " *";
+          label.appendChild(span);
+        }
+        group.appendChild(label);
+
+        // Input based on type
+        if (q.input_type === "text") {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.id = `dyn-${q.question_key}`;
+          input.placeholder = "Enter details...";
+          input.required = q.is_required;
+          group.appendChild(input);
+        } else if (q.input_type === "number") {
+          const input = document.createElement("input");
+          input.type = "number";
+          input.id = `dyn-${q.question_key}`;
+          input.placeholder = "E.g. 100";
+          input.required = q.is_required;
+          group.appendChild(input);
+        } else if (q.input_type === "textarea") {
+          const textarea = document.createElement("textarea");
+          textarea.id = `dyn-${q.question_key}`;
+          textarea.placeholder = "Details...";
+          textarea.required = q.is_required;
+          group.appendChild(textarea);
+        } else if (q.input_type === "radio") {
+          const radioGroup = document.createElement("div");
+          radioGroup.className = "radio-card-group";
+          
+          let opts: string[] = ["Yes", "No"];
+          if (q.options) {
+            opts = Array.isArray(q.options) ? q.options : JSON.parse(q.options);
+          }
+
+          opts.forEach((opt: string, idx: number) => {
+            const card = document.createElement("div");
+            card.className = "radio-card";
+
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.id = `opt-${q.question_key}-${opt.replace(/\s+/g, "")}`;
+            radio.name = `dyn-${q.question_key}`;
+            radio.value = opt;
+            radio.required = q.is_required;
+            if (q.is_required && idx === 0) {
+              radio.checked = true;
+            }
+
+            const cardLabel = document.createElement("label");
+            cardLabel.className = "radio-card-label";
+            cardLabel.setAttribute("for", radio.id);
+            cardLabel.textContent = opt;
+
+            card.appendChild(radio);
+            card.appendChild(cardLabel);
+            radioGroup.appendChild(card);
+          });
+          group.appendChild(radioGroup);
+        }
+
+        // Attach event listener for conditional displays
+        group.addEventListener("change", updateConditionals);
+        
+        // Append to appropriate container
+        if (q.section === "telemetry") {
+          dynamicTelemetry.appendChild(group);
+        } else if (q.section === "motor_feel") {
+          dynamicMotor.appendChild(group);
+        } else if (q.section === "terrain") {
+          dynamicTerrain.appendChild(group);
+        }
+      });
+
+      // Run once at start to hide/show dependencies
+      updateConditionals();
+    } catch (err) {
+      console.error("Error rendering dynamic fields:", err);
+    }
+  }
+
+  // Update dynamic conditional logic
+  function updateConditionals() {
+    const groups = document.querySelectorAll("div[data-key]");
+    
+    // Create a map of current values for all keys
+    const values: Record<string, string | null> = {};
+    groups.forEach((g) => {
+      const key = g.getAttribute("data-key")!;
+      
+      const textInput = g.querySelector("input[type='text'], input[type='number'], textarea") as HTMLInputElement | HTMLTextAreaElement;
+      if (textInput) {
+        values[key] = textInput.value || null;
+      } else {
+        const checkedRadio = g.querySelector("input[type='radio']:checked") as HTMLInputElement;
+        values[key] = checkedRadio ? checkedRadio.value : null;
+      }
+    });
+
+    // Evaluate visibility based on dependencies
+    groups.forEach((el) => {
+      const g = el as HTMLElement;
+      const parentKey = g.getAttribute("data-parent");
+      if (parentKey) {
+        const triggerValue = g.getAttribute("data-trigger")!;
+        const parentCurrentValue = values[parentKey];
+
+        const isVisible = parentCurrentValue !== null && parentCurrentValue === triggerValue;
+        
+        const inputs = g.querySelectorAll("input, textarea");
+        if (isVisible) {
+          g.style.display = "block";
+          g.style.opacity = "1";
+          g.style.pointerEvents = "auto";
+          inputs.forEach((input: any) => {
+            input.disabled = false;
+            // Restore required if group is required
+            if (g.classList.contains("required")) {
+              input.required = true;
+            }
+          });
+        } else {
+          g.style.display = "none";
+          g.style.opacity = "0.35";
+          g.style.pointerEvents = "none";
+          inputs.forEach((input: any) => {
+            input.disabled = true;
+            input.required = false;
+            // Clear input value
+            if (input.type === "radio") {
+              input.checked = false;
+            } else {
+              input.value = "";
+            }
+          });
+        }
+      }
+    });
+  }
 
   // Helper to get selected option data
   function getSelectedBikeOption() {
@@ -155,46 +336,56 @@ document.addEventListener("DOMContentLoaded", async () => {
       elevation_m: elevationM
     };
 
-    // Helper to get checked radio value
-    function getRadioValue(name: string): string | null {
-      const el = document.querySelector(`input[name="${name}"]:checked`) as HTMLInputElement;
-      return el ? el.value : null;
-    }
+    // Gather dynamic answers
+    const answers: Record<string, any> = {};
+    const groups = document.querySelectorAll("div[data-key]");
+    
+    groups.forEach((g) => {
+      const key = g.getAttribute("data-key")!;
+      
+      const textInput = g.querySelector("input[type='text'], input[type='number'], textarea") as HTMLInputElement | HTMLTextAreaElement;
+      if (textInput) {
+        if (!textInput.disabled) {
+          const value = textInput.value.trim();
+          answers[key] = textInput.type === "number" ? (value ? Number(value) : null) : (value || null);
+        }
+      } else {
+        const checkedRadio = g.querySelector("input[type='radio']:checked") as HTMLInputElement;
+        const firstRadio = g.querySelector("input[type='radio']") as HTMLInputElement;
+        if (firstRadio && !firstRadio.disabled) {
+          answers[key] = checkedRadio ? checkedRadio.value : null;
+        }
+      }
+    });
 
-    // Helper to get text/textarea value
-    function getTextValue(id: string): string | null {
-      const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement;
-      if (!el || el.disabled) return null;
-      return el.value.trim();
-    }
-
-    const feedbackDto: Omit<CreateRideFeedbackDTO, "ride_id"> = {
-      rider_name: getTextValue("rider-name") || "",
-      rider_email: getTextValue("rider-email"),
-      initial_battery: Number(getTextValue("initial-battery")) || null,
-      final_battery: Number(getTextValue("final-battery")) || null,
-      motor_startup: getRadioValue("motor-startup"),
-      motor_stop: getRadioValue("motor-stop"),
-      assistance: getRadioValue("assistance"),
-      power_feeling: getTextValue("power-feeling"),
-      motor_feel: getTextValue("motor-feel"),
-      motor_error: getRadioValue("motor-error"),
-      error_description: getTextValue("error-description"),
-      comments: getTextValue("comments") || "Rider submitted review",
-      use_app: getRadioValue("use-app"),
-      app_experience: getTextValue("app-experience"),
-      test_dynamic_mode: getRadioValue("test-dynamic-mode"),
-      auto_mode_experience: getTextValue("auto-mode-experience"),
-      flat_terrain_assistance: getRadioValue("flat-terrain-assistance"),
-      flat_terrain_perception: getTextValue("flat-terrain-perception"),
-      moderate_terrain_assistance: getRadioValue("moderate-terrain-assistance"),
-      moderate_terrain_perception: getTextValue("moderate-terrain-perception"),
-      steep_terrain_assistance: getRadioValue("steep-terrain-assistance"),
-      steep_terrain_perception: getTextValue("steep-terrain-perception"),
-      technical_terrain_assistance: getRadioValue("technical-terrain-assistance"),
-      technical_terrain_perception: getTextValue("technical-terrain-perception"),
-      suggested_improvements: getTextValue("suggested-improvements")
+    // Populate DTO with rider static info and answers dictionary
+    const feedbackDto: CreateRideFeedbackDTO = {
+      rider_name: (document.getElementById("rider-name") as HTMLInputElement).value.trim(),
+      rider_email: (document.getElementById("rider-email") as HTMLInputElement).value.trim() || null,
+      answers: answers
     };
+
+    // Map keys to specific columns for backward compatibility in database / old reports
+    const oldKeys = [
+      "initial_battery", "final_battery", "motor_startup", "motor_stop",
+      "assistance", "power_feeling", "motor_feel", "motor_error",
+      "error_description", "comments", "use_app", "app_experience",
+      "test_dynamic_mode", "auto_mode_experience", "flat_terrain_assistance",
+      "flat_terrain_perception", "moderate_terrain_assistance",
+      "moderate_terrain_perception", "steep_terrain_assistance",
+      "steep_terrain_perception", "technical_terrain_assistance",
+      "technical_terrain_perception", "suggested_improvements"
+    ];
+
+    oldKeys.forEach((k) => {
+      if (answers[k] !== undefined) {
+        if (k === "initial_battery" || k === "final_battery") {
+          (feedbackDto as any)[k] = answers[k] !== null ? Number(answers[k]) : null;
+        } else {
+          (feedbackDto as any)[k] = answers[k];
+        }
+      }
+    });
 
     try {
       await service.saveRideWithFeedback(rideDto, feedbackDto);
@@ -206,13 +397,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       resolvedMotorSpan.textContent = "—";
       bikeSelect.innerHTML = '<option value="" disabled selected>Select a Field Test first in Tab 1...</option>';
       bikeSelect.disabled = true;
+      clearDynamicFields();
       
-      // Reset dynamic mode layout
-      const wrapper = document.getElementById('dynamic-fields-wrapper');
-      if (wrapper) {
-        wrapper.classList.add('dynamic-disabled-field');
-      }
-
       // Switch back to Tab 1 (Personal Data)
       const tab1Btn = document.querySelector('.tab-btn[data-target="tab-personal"]') as HTMLButtonElement;
       if (tab1Btn) {

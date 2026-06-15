@@ -104,4 +104,21 @@ export class RideLogService {
         const rideId = await this.rideLogDao.insertRideLog(fullRideDto);
         await this.rideLogDao.insertFeedback(rideId, feedbackDto);
     }
+    async getReviewQuestions(fieldTestId) {
+        let query = supabase
+            .from("review_questions")
+            .select("*")
+            .order("sort_order", { ascending: true });
+        if (fieldTestId) {
+            query = query.or(`field_test_id.is.null,field_test_id.eq.${fieldTestId}`);
+        }
+        else {
+            query = query.is("field_test_id", null);
+        }
+        const { data, error } = await query;
+        if (error) {
+            throw error;
+        }
+        return data || [];
+    }
 }

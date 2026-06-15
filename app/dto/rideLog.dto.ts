@@ -33,4 +33,5 @@ export interface CreateRideFeedbackDTO {
   technical_terrain_assistance?: string | null;
   technical_terrain_perception?: string | null;
   suggested_improvements?: string | null;
+  answers?: Record<string, any> | null;
 }

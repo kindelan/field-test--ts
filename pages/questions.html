@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor de Preguntas - Bikes Manager</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    }
+  }
+  </script>
+
+  <style>
+    /* ==========================================
+       VARIABLES & BASE DESIGN SYSTEM
+       ========================================== */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      --primary-hover: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      
+      --transition-all: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 30px;
+      line-height: 1.5;
+    }
+
+    /* ==========================================
+       HEADER & NAVIGATION
+       ========================================== */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+
+    .nav-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: var(--transition-all);
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+    }
+
+    .nav-link.active {
+      color: white;
+      background: var(--primary-gradient);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ==========================================
+       LAYOUT CONTAINER
+       ========================================== */
+    .app-container {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+
+    /* ==========================================
+       PANELS & CARDS
+       ========================================== */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      transition: var(--transition-all);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* ==========================================
+       FORMS & INPUTS
+       ========================================== */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .form-group.row-layout {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      margin-top: 5px;
+    }
+
+    .form-group.row-layout label {
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .form-group.row-layout input[type="checkbox"] {
+      width: auto;
+      cursor: pointer;
+    }
+
+    form input, form select, form textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition-all);
+      width: 100%;
+    }
+
+    form input:focus, form select:focus, form textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    form textarea {
+      resize: vertical;
+      min-height: 85px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-all);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:hover {
+      background: var(--border-color);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    button.primary-action {
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+    }
+
+    button.primary-action:hover {
+      background: var(--primary-hover);
+    }
+
+    button.danger-action {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--accent-red);
+    }
+
+    button.danger-action:hover {
+      background: var(--accent-red);
+      color: white;
+    }
+
+    /* ==========================================
+       TABLES & ALERTS
+       ========================================== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-md);
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: var(--transition-all);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(99, 102, 241, 0.03);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .badge-cyan {
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--accent-amber);
+    }
+
+    .badge-green {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+    }
+
+    .badge-purple {
+      background: rgba(124, 58, 237, 0.1);
+      color: #a78bfa;
+    }
+
+    .status-msg {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .status-msg.success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      display: block;
+    }
+
+    .status-msg.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+      display: block;
+    }
+
+    .status-msg.info {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      color: var(--accent-cyan);
+      display: block;
+    }
+
+    .options-group {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px dashed var(--border-color);
+      padding: 12px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>Bikes Manager</h1>
+      <nav class="nav-container">
+        <a href="/bikes.html" class="nav-link">Bicicletas</a>
+        <a href="/ft.html" class="nav-link">Field Tests</a>
+        <a href="/import.html" class="nav-link">Importar Excel</a>
+        <a href="/finance.html" class="nav-link">Reporte Económico</a>
+        <a href="/questions.html" class="nav-link active">Preguntas Formulario</a>
+        <a href="/form.html" class="nav-link">Rider Review</a>
+        <button id="logout-btn" class="nav-link" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--accent-red); cursor: pointer; font-family: inherit;">Cerrar Sesión</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- LEFT PANEL: CREATE/EDIT QUESTION -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3 id="form-title">Nueva Pregunta</h3>
+      </div>
+      
+      <div id="status-alert" class="status-msg"></div>
+
+      <form id="question-form">
+        <input type="hidden" id="edit-id" value="" />
+
+        <div class="form-group">
+          <label for="q-field-test">Field Test</label>
+          <select id="q-field-test">
+            <option value="">Común (Todos los tests)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="q-section">Sección / Tab</label>
+          <select id="q-section" required>
+            <option value="telemetry">Telemetry / Batería (Tab 2)</option>
+            <option value="motor_feel">Motor Feel (Tab 3)</option>
+            <option value="terrain">Terrains & Auto (Tab 4)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="q-key">Identificador Único (Key)</label>
+          <input type="text" id="q-key" placeholder="Ej: motor_temp_feeling" required pattern="^[a-z0-9_]+$" title="Solo minúsculas, números y guiones bajos" />
+        </div>
+
+        <div class="form-group">
+          <label for="q-label">Etiqueta de la Pregunta</label>
+          <input type="text" id="q-label" placeholder="Ej: ¿Cómo sentiste la temperatura del motor?" required />
+        </div>
+
+        <div class="form-group">
+          <label for="q-type">Tipo de Input</label>
+          <select id="q-type" required>
+            <option value="text">Texto corto (TextInput)</option>
+            <option value="number">Número (NumberInput)</option>
+            <option value="textarea">Área de texto largo (TextArea)</option>
+            <option value="radio">Selección única (Radio Button/Cards)</option>
+          </select>
+        </div>
+
+        <div class="form-group options-group" id="options-wrapper" style="display: none;">
+          <label for="q-options">Opciones de Selección (JSON)</label>
+          <textarea id="q-options" placeholder='Ej: ["Smooth", "Intermediate", "Harsh"]'></textarea>
+          <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px; display: block;">Escribe una lista en formato JSON de strings.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="q-order">Orden de visualización</label>
+          <input type="number" id="q-order" value="10" min="0" required />
+        </div>
+
+        <div class="form-group row-layout">
+          <input type="checkbox" id="q-required" checked />
+          <label for="q-required">Esta pregunta es obligatoria</label>
+        </div>
+
+        <div class="panel-header" style="margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color);">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Mostrar Condicional (Opcional)</h4>
+        </div>
+
+        <div class="form-group">
+          <label for="q-parent-key">Pregunta Padre (Key)</label>
+          <input type="text" id="q-parent-key" placeholder="Ej: motor_error" />
+        </div>
+
+        <div class="form-group">
+          <label for="q-parent-val">Valor que lo activa</label>
+          <input type="text" id="q-parent-val" placeholder="Ej: Yes" />
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button type="button" id="cancel-edit-btn" class="cancel-btn" style="flex: 1; display: none;">Cancelar</button>
+          <button type="submit" class="primary-action" style="flex: 2;">Guardar Pregunta</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT PANEL: QUESTIONS LIST -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Listado de Preguntas</h3>
+        <div>
+          <label for="filter-field-test" style="font-size: 13px; color: var(--text-secondary); margin-right: 8px;">Filtrar por Test:</label>
+          <select id="filter-field-test" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; font-size: 13px; outline: none; width: 220px; transition: var(--transition-all);">
+            <option value="">Comunes (Sin asignar)</option>
+            <option value="all">Todas (Comunes + Custom)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px;">Orden</th>
+              <th>Sección</th>
+              <th>Clave (Key)</th>
+              <th>Pregunta</th>
+              <th>Tipo</th>
+              <th>Padre (Trigger)</th>
+              <th>F. Test</th>
+              <th style="width: 140px; text-align: right;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="questions-tbody">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-secondary);">Cargando preguntas...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/dist/app/controllers/questions.controller.js"></script>
+</body>
+</html>
