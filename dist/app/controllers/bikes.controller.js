@@ -2,6 +2,7 @@ import { BikesService } from "../services/bikes.service.js";
 import { renderBikeList, renderBikeDetail, renderEditForm, renderBikeHistory, renderChangeComponentForm } from "./bikes.ui.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 import { requireAuth } from "../utils/authGuard.js";
+import { showToast } from "../utils/toast.js";
 const service = new BikesService();
 async function main() {
     let session;
@@ -102,8 +103,15 @@ async function main() {
             onEditMeta: () => {
                 form.style.display = "block";
                 renderEditForm(bike, form, async (changes) => {
-                    await service.update(bike.id, changes);
-                    await refresh(bike.id);
+                    try {
+                        await service.update(bike.id, changes);
+                        showToast("Datos de la bicicleta actualizados con éxito", "success");
+                        await refresh(bike.id);
+                    }
+                    catch (err) {
+                        console.error(err);
+                        showToast("Error al actualizar metadatos: " + (err.message || err), "error");
+                    }
                 }, () => {
                     form.innerHTML = "";
                     form.style.display = "none";
@@ -123,15 +131,22 @@ async function main() {
             onChangeComponent: (componentType) => {
                 form.style.display = "block";
                 renderChangeComponentForm(bike, form, componentType, async (data) => {
-                    await service.changeBikeComponent({
-                        bikeId: bike.id,
-                        componentType: componentType,
-                        componentTypeCode: data.type,
-                        componentSerialCode: data.code,
-                        componentVersion: data.fw !== undefined && data.fw !== null ? data.fw : null,
-                        notes: data.notes !== undefined && data.notes !== null ? data.notes : null
-                    });
-                    await refresh(bike.id);
+                    try {
+                        await service.changeBikeComponent({
+                            bikeId: bike.id,
+                            componentType: componentType,
+                            componentTypeCode: data.type,
+                            componentSerialCode: data.code,
+                            componentVersion: data.fw !== undefined && data.fw !== null ? data.fw : null,
+                            notes: data.notes !== undefined && data.notes !== null ? data.notes : null
+                        });
+                        showToast(`Componente ${componentType} cambiado con éxito`, "success");
+                        await refresh(bike.id);
+                    }
+                    catch (err) {
+                        console.error(err);
+                        showToast("Error al cambiar componente: " + (err.message || err), "error");
+                    }
                 }, () => {
                     form.innerHTML = "";
                     form.style.display = "none";
@@ -181,11 +196,12 @@ async function main() {
                     other: null
                 });
                 createInput.value = "";
+                showToast("Bicicleta creada con éxito: " + newBike.bikecode, "success");
                 await refresh(newBike.id);
             }
             catch (e) {
                 console.error(e);
-                alert("Error creando bici");
+                showToast("Error creando bici: " + (e.message || e), "error");
             }
         };
     }

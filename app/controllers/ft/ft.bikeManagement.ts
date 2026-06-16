@@ -1,4 +1,5 @@
 import { context } from "./ft.context.js";
+import { showToast } from "../../utils/toast.js";
 
 export async function loadBikes() {
   if (!context.selectedFTId) return;
@@ -38,10 +39,13 @@ export async function loadBikes() {
     }
 
     btn.onclick = async () => {
+      const bikecode = (r.bikes as any).bikecode;
       try {
         await context.service.unassignBike((r.bikes as any).id);
-      } catch (err) {
+        showToast(`Bicicleta ${bikecode} quitada con éxito`, "success");
+      } catch (err: any) {
         console.error("Error unassigning bike:", err);
+        showToast("Error al quitar bicicleta: " + (err.message || err), "error");
       }
       try {
         await context.loadBikes();
@@ -82,8 +86,10 @@ export async function loadBikes() {
       btn.onclick = async () => {
         try {
           await context.service.assignBike(b.id, context.selectedFTId!);
-        } catch (err) {
+          showToast(`Bicicleta ${b.bikecode} añadida con éxito`, "success");
+        } catch (err: any) {
           console.error("Error assigning bike:", err);
+          showToast("Error al añadir bicicleta: " + (err.message || err), "error");
         }
         try {
           await context.loadBikes();

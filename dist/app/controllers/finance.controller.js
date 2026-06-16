@@ -1,4 +1,5 @@
 import { requireAuth } from "../utils/authGuard.js";
+import { showToast } from "../utils/toast.js";
 import { FinanceService } from "../services/finance.service.js";
 import { BikesService } from "../services/bikes.service.js";
 import { FieldTestService } from "../services/fieldTest.service.js";
@@ -334,11 +335,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                         if (confirm(`¿Estás seguro de eliminar la factura ${inv.invoice_number}?`)) {
                             try {
                                 await financeService.deleteInvoice(inv.id);
+                                showToast("Factura eliminada correctamente", "success");
                                 alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura eliminada correctamente.</div>';
                                 loadInvoicesList();
                             }
                             catch (err) {
                                 console.error(err);
+                                showToast("Error al eliminar la factura: " + (err.message || err), "error");
                                 alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al eliminar: ${err.message || err}</div>`;
                             }
                         }
@@ -381,6 +384,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 field_test_id: selectedFtId
             };
             await financeService.createInvoice(input, selectedBikeIds, file);
+            showToast("Factura guardada correctamente", "success");
             alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura guardada correctamente.</div>';
             invoiceForm.reset();
             fileNameDisplay.textContent = "Ningún archivo seleccionado";

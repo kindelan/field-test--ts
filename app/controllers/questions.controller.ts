@@ -1,5 +1,6 @@
 import { supabase } from "../dao/supabaseclient.js";
 import { requireAuth } from "../utils/authGuard.js";
+import { showToast } from "../utils/toast.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   let session;
@@ -317,6 +318,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .eq("id", id);
         if (error) throw error;
         showStatus("Pregunta actualizada con éxito", "success");
+        showToast("Pregunta actualizada con éxito", "success");
       } else {
         payload.created_at = new Date().toISOString();
         const { error } = await supabase
@@ -324,12 +326,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           .insert(payload);
         if (error) throw error;
         showStatus("Pregunta creada con éxito", "success");
+        showToast("Pregunta creada con éxito", "success");
       }
 
       cancelEdit();
       await loadQuestions();
     } catch (err: any) {
       showStatus("Error al guardar: " + err.message, "error");
+      showToast("Error al guardar: " + err.message, "error");
     }
   };
 
@@ -346,9 +350,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (error) throw error;
       showStatus("Pregunta eliminada con éxito", "success");
+      showToast("Pregunta eliminada con éxito", "success");
       await loadQuestions();
     } catch (err: any) {
       showStatus("Error al eliminar: " + err.message, "error");
+      showToast("Error al eliminar: " + err.message, "error");
     }
   }
 

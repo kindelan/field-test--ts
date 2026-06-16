@@ -1,4 +1,5 @@
 import { context, formatWeekYear, getColor, normalizeBikeCode } from "./ft.context.js";
+import { showToast } from "../../utils/toast.js";
 
 // ✅ 1. RENDER ERRORS POPUP
 export function renderErrorsPopup(popup: Window, name: string, errors: any[]) {
@@ -806,28 +807,30 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
 (window as any).handleAddBikeError = async (bikeId: string, errorTagId: string, errorDate: string, desc: string) => {
   try {
     await context.service.addBikeError(context.selectedFTId!, bikeId, errorTagId, errorDate, desc);
+    showToast("Fallo registrado correctamente", "success");
     try {
       await context.loadKmSummary();
     } catch (err) {
       console.error(err);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error adding bike error:", err);
-    alert("Error al registrar el fallo: " + err);
+    showToast("Error al registrar el fallo: " + (err.message || err), "error");
   }
 };
 
 (window as any).handleDeleteBikeError = async (errorId: string) => {
   try {
     await context.service.deleteBikeError(errorId);
+    showToast("Incidencia eliminada con éxito", "success");
     try {
       await context.loadKmSummary();
     } catch (err) {
       console.error(err);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error deleting bike error:", err);
-    alert("Error al eliminar el fallo: " + err);
+    showToast("Error al eliminar el fallo: " + (err.message || err), "error");
   }
 };
 
@@ -847,13 +850,15 @@ export async function renderBikePopup(popup: Window, bikecode: string, data: any
       errorDate,
       desc
     );
+    showToast(`Incidencia de ${targetType} registrada con éxito`, "success");
     try {
       await context.loadKmSummary();
     } catch (err) {
       console.error(err);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error adding generic error:", err);
+    showToast("Error al registrar incidencia: " + (err.message || err), "error");
     throw err;
   }
 };
@@ -1140,10 +1145,11 @@ export function initErrorLog() {
     const nameEl = document.getElementById("new-tag-name") as HTMLInputElement;
     const compEl = document.getElementById("new-tag-component") as HTMLSelectElement;
 
+    const tagName = nameEl.value.trim();
     try {
-      await context.service.createErrorTag(nameEl.value.trim(), compEl.value);
+      await context.service.createErrorTag(tagName, compEl.value);
       nameEl.value = "";
-      alert("Etiqueta de error creada correctamente.");
+      showToast("Etiqueta de error creada correctamente: " + tagName, "success");
       if (context.selectedFTId) {
         try {
           await context.loadKmSummary();
@@ -1151,9 +1157,9 @@ export function initErrorLog() {
           console.error(err);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating tag:", err);
-      alert("Error al crear la etiqueta: " + err);
+      showToast("Error al crear la etiqueta: " + (err.message || err), "error");
     }
   };
 }
