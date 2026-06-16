@@ -132,7 +132,7 @@ async function main() {
                 form.style.display = "block";
                 renderChangeComponentForm(bike, form, componentType, async (data) => {
                     try {
-                        await service.changeBikeComponent({
+                        const result = await service.changeBikeComponent({
                             bikeId: bike.id,
                             componentType: componentType,
                             componentTypeCode: data.type,
@@ -140,7 +140,12 @@ async function main() {
                             componentVersion: data.fw !== undefined && data.fw !== null ? data.fw : null,
                             notes: data.notes !== undefined && data.notes !== null ? data.notes : null
                         });
-                        showToast(`Componente ${componentType} cambiado con éxito`, "success");
+                        if (result && result.movedFromBikeCode) {
+                            showToast(`Componente ${componentType} transferido desde la bicicleta ${result.movedFromBikeCode}`, "success");
+                        }
+                        else {
+                            showToast(`Componente ${componentType} cambiado con éxito`, "success");
+                        }
                         await refresh(bike.id);
                     }
                     catch (err) {

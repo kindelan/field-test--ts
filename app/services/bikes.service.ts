@@ -116,9 +116,67 @@ export class BikesService {
   ===================================================== */
   async changeBikeComponent(
     input: ChangeBikeComponentInput
-  ): Promise<void> {
+  ): Promise<{ movedFromBikeCode?: string | null }> {
 
     const changedAt = input.changedAt ?? new Date().toISOString();
+    let movedFromBikeCode: string | null = null;
+
+    /* -------------------------------------------------
+       0️⃣ Buscar si el componente está activo en otra bici
+    ------------------------------------------------- */
+    if (input.componentSerialCode && input.componentSerialCode !== "—") {
+      const { data: activeOnOther } = await supabase
+        .from("bike_component_history")
+        .select("id, bike_id")
+        .eq("component_type", input.componentType)
+        .eq("component_serial_code", input.componentSerialCode)
+        .is("end_at", null)
+        .neq("bike_id", input.bikeId)
+        .maybeSingle();
+
+      if (activeOnOther) {
+        // Obtener el código de la bici anterior
+        const { data: oldBike } = await supabase
+          .from("bikes")
+          .select("bikecode")
+          .eq("id", activeOnOther.bike_id)
+          .maybeSingle();
+        
+        if (oldBike) {
+          movedFromBikeCode = oldBike.bikecode;
+        }
+
+        // 1. Cerrar el período en la otra bici
+        await supabase
+          .from("bike_component_history")
+          .update({ end_at: changedAt })
+          .eq("id", activeOnOther.id);
+
+        // 2. Desvincular de la tabla bikes de la otra bici
+        const oldBikeUpdate: Record<string, any> = {};
+        if (input.componentType === "motor") {
+          oldBikeUpdate.motortype = null;
+          oldBikeUpdate.motorcode = null;
+          oldBikeUpdate.motorfirmware = null;
+        } else if (input.componentType === "battery") {
+          oldBikeUpdate.batterytype = null;
+          oldBikeUpdate.batterycode = null;
+          oldBikeUpdate.batteryfirmware = null;
+        } else if (input.componentType === "hmi") {
+          oldBikeUpdate.hmicode = null;
+          oldBikeUpdate.hmifirmware = null;
+        } else if (input.componentType === "other") {
+          oldBikeUpdate.other = null;
+        }
+
+        if (Object.keys(oldBikeUpdate).length) {
+          await supabase
+            .from("bikes")
+            .update(oldBikeUpdate)
+            .eq("id", activeOnOther.bike_id);
+        }
+      }
+    }
 
     /* -------------------------------------------------
        1️⃣ Leer componente actual
@@ -202,6 +260,7 @@ export class BikesService {
       if (bikeErr) throw bikeErr;
     }
 
+    return { movedFromBikeCode };
 
     /* -------------------------------------------------
        5️⃣ Guardar histórico (timeline)
