@@ -5,9 +5,11 @@ ALTER TABLE public.test_ride_feedback
 ADD COLUMN IF NOT EXISTS answers JSONB DEFAULT '{}'::jsonb NOT NULL;
 
 -- 2. Create review_questions table
-CREATE TABLE IF NOT EXISTS public.review_questions (
+DROP TABLE IF EXISTS public.review_questions CASCADE;
+
+CREATE TABLE public.review_questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    field_test_id UUID REFERENCES public.field_test(id) ON DELETE CASCADE, -- NULL if common to all field tests
+    field_test_ids UUID[] DEFAULT NULL, -- NULL if common to all field tests, otherwise array of field test UUIDs
     section VARCHAR(50) NOT NULL, -- e.g. 'telemetry', 'motor_feel', 'terrain'
     label TEXT NOT NULL, -- The question displayed to the user
     question_key VARCHAR(100) NOT NULL UNIQUE, -- Key used to store in JSONB (e.g. 'initial_battery')
@@ -20,6 +22,9 @@ CREATE TABLE IF NOT EXISTS public.review_questions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Create GIN index on field_test_ids for containment querying
+CREATE INDEX IF NOT EXISTS idx_review_questions_field_test_ids ON public.review_questions USING gin (field_test_ids);
 
 -- Enable RLS on review_questions
 ALTER TABLE public.review_questions ENABLE ROW LEVEL SECURITY;

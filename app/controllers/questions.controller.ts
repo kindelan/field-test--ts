@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 1. DOM Elements
   const form = document.getElementById("question-form") as HTMLFormElement;
   const editIdInput = document.getElementById("edit-id") as HTMLInputElement;
-  const qFieldTest = document.getElementById("q-field-test") as HTMLSelectElement;
+  const qFieldTestsContainer = document.getElementById("q-field-tests-container") as HTMLDivElement;
   const qSection = document.getElementById("q-section") as HTMLSelectElement;
   const qKey = document.getElementById("q-key") as HTMLInputElement;
   const qLabel = document.getElementById("q-label") as HTMLInputElement;
@@ -30,6 +30,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const filterFieldTest = document.getElementById("filter-field-test") as HTMLSelectElement;
   const tbody = document.getElementById("questions-tbody") as HTMLTableSectionElement;
+
+  // Cache to map field_test_id to name for table display
+  const fieldTestNames: Record<string, string> = {};
 
   // Show/hide options textarea based on type
   qType.addEventListener("change", () => {
@@ -54,12 +57,32 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (error) throw error;
 
       if (data) {
+        qFieldTestsContainer.innerHTML = "";
         data.forEach(ft => {
-          // Add to form select
-          const optForm = document.createElement("option");
-          optForm.value = ft.id;
-          optForm.textContent = ft.name;
-          qFieldTest.appendChild(optForm);
+          fieldTestNames[ft.id] = ft.name;
+
+          // Render a checkbox for the form selection
+          const label = document.createElement("label");
+          label.style.display = "flex";
+          label.style.alignItems = "center";
+          label.style.gap = "8px";
+          label.style.cursor = "pointer";
+          label.style.fontSize = "13px";
+          label.style.color = "var(--text-primary)";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = ft.id;
+          checkbox.name = "q-field-test-checkbox";
+          checkbox.style.width = "auto";
+          checkbox.style.cursor = "pointer";
+
+          const span = document.createElement("span");
+          span.textContent = ft.name;
+
+          label.appendChild(checkbox);
+          label.appendChild(span);
+          qFieldTestsContainer.appendChild(label);
 
           // Add to filter select
           const optFilter = document.createElement("option");
@@ -91,11 +114,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (filterVal === "all") {
         // Fetch all questions
       } else if (filterVal === "") {
-        // Fetch common only
-        query = query.is("field_test_id", null);
+        // Fetch common only (array is null)
+        query = query.is("field_test_ids", null);
       } else {
-        // Fetch common or specific test
-        query = query.or(`field_test_id.is.null,field_test_id.eq.${filterVal}`);
+        // Fetch common (null) or specific test (array contains the test ID)
+        query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${filterVal}}`);
       }
 
       const { data, error } = await query.order("sort_order", { ascending: true });
@@ -158,7 +181,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Field Test Assignment
         const tdFT = document.createElement("td");
-        tdFT.textContent = q.field_test_id ? "Custom" : "Común";
+        if (q.field_test_ids && q.field_test_ids.length > 0) {
+          const names = q.field_test_ids.map((id: string) => fieldTestNames[id] || "Desconocido");
+          tdFT.textContent = names.join(", ");
+          tdFT.style.fontSize = "12px";
+        } else {
+          tdFT.textContent = "Común";
+        }
         tr.appendChild(tdFT);
 
         // Actions
@@ -193,7 +222,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 4. Handle Edit mode
   function startEdit(q: any) {
     editIdInput.value = q.id;
-    qFieldTest.value = q.field_test_id || "";
     qSection.value = q.section;
     qKey.value = q.question_key;
     qKey.disabled = true; // Don't let them change the key once created to avoid losing column alignments
@@ -215,6 +243,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     qParentKey.value = q.parent_question_key || "";
     qParentVal.value = q.parent_trigger_value || "";
 
+    // Set checkboxes corresponding to q.field_test_ids
+    const checkboxes = document.querySelectorAll('input[name="q-field-test-checkbox"]') as NodeListOf<HTMLInputElement>;
+    const assignedIds = q.field_test_ids || [];
+    checkboxes.forEach(cb => {
+      cb.checked = assignedIds.includes(cb.value);
+    });
+
     formTitle.textContent = "Editar Pregunta";
     cancelEditBtn.style.display = "inline-flex";
   }
@@ -225,6 +260,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     qKey.disabled = false;
     optionsWrapper.style.display = "none";
     qOptions.required = false;
+    
+    // Form reset automatically clears check states
     formTitle.textContent = "Nueva Pregunta";
     cancelEditBtn.style.display = "none";
   }
@@ -254,8 +291,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    // Get checked field test IDs
+    const checkboxes = document.querySelectorAll('input[name="q-field-test-checkbox"]:checked') as NodeListOf<HTMLInputElement>;
+    const fieldTestIds = Array.from(checkboxes).map(cb => cb.value);
+
     const payload: any = {
-      field_test_id: qFieldTest.value || null,
+      field_test_ids: fieldTestIds.length > 0 ? fieldTestIds : null,
       section: qSection.value,
       question_key: qKey.value.trim(),
       label: qLabel.value.trim(),

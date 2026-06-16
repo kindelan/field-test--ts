@@ -110,10 +110,10 @@ export class RideLogService {
             .select("*")
             .order("sort_order", { ascending: true });
         if (fieldTestId) {
-            query = query.or(`field_test_id.is.null,field_test_id.eq.${fieldTestId}`);
+            query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${fieldTestId}}`);
         }
         else {
-            query = query.is("field_test_id", null);
+            query = query.is("field_test_ids", null);
         }
         const { data, error } = await query;
         if (error) {

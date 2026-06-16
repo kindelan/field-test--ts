@@ -400,10 +400,11 @@
         <input type="hidden" id="edit-id" value="" />
 
         <div class="form-group">
-          <label for="q-field-test">Field Test</label>
-          <select id="q-field-test">
-            <option value="">Común (Todos los tests)</option>
-          </select>
+          <label>Asignar a Field Tests</label>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Si no marcas ninguno, se mostrará en todos los tests (Común).</div>
+          <div id="q-field-tests-container" style="max-height: 120px; overflow-y: auto; background: var(--bg-input); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Checkboxes will be dynamically rendered here -->
+          </div>
         </div>
 
         <div class="form-group">
