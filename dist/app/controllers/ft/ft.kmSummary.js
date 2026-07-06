@@ -1115,6 +1115,488 @@ export function renderFeedbackPopup(popup, bikecode, feedbacks, questions = []) 
   `);
     popup.document.close();
 }
+export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
+    // 1. Fetch motor's component history across all bikes
+    const { data: histories, error: histErr } = await supabase
+        .from("bike_component_history")
+        .select(`
+      component_type_code,
+      component_serial_code,
+      component_version,
+      start_at,
+      end_at,
+      notes,
+      bikes(bikecode)
+    `)
+        .eq("component_type", "motor")
+        .eq("component_serial_code", motorSerial)
+        .order("start_at", { ascending: false });
+    if (histErr)
+        throw histErr;
+    // 2. Fetch all errors for this motor in this Field Test
+    const { data: errors, error: errErr } = await supabase
+        .from("bike_errors")
+        .select(`
+      id,
+      error_date,
+      km_at_failure,
+      description,
+      motor_code,
+      battery_code,
+      bikes(bikecode),
+      error_tags(name, component)
+    `)
+        .eq("motor_code", motorSerial)
+        .eq("field_test_id", fieldTestId)
+        .order("error_date", { ascending: false });
+    if (errErr)
+        throw errErr;
+    // 3. Fetch all assigned bikes for this Field Test to filter reviews
+    const assigned = await context.service.getBikesAssigned(fieldTestId);
+    const assignedBikeCodes = new Set(assigned
+        .filter(a => a && a.bikes)
+        .map(a => normalizeBikeCode(a.bikes.bikecode)?.toLowerCase()));
+    // 4. Fetch all feedbacks for this motor
+    const { data: allFeedbacks, error: fbErr } = await supabase
+        .from("test_ride_feedback")
+        .select("*, test_ride_log!inner(*)")
+        .eq("test_ride_log.motor_type", motorSerial);
+    if (fbErr)
+        throw fbErr;
+    const feedbacks = (allFeedbacks || []).filter((f) => {
+        if (!f.test_ride_log)
+            return false;
+        const bCodeNorm = normalizeBikeCode(f.test_ride_log.bike_code)?.toLowerCase();
+        return bCodeNorm && assignedBikeCodes.has(bCodeNorm);
+    });
+    const totalKm = feedbacks.reduce((acc, f) => acc + (f.test_ride_log?.distance_km || 0), 0);
+    // 5. Fetch dynamic questions for rendering cards
+    const { data: questions, error: qErr } = await supabase
+        .from("review_questions")
+        .select("*")
+        .or(`field_test_ids.is.null,field_test_ids.cs.{${fieldTestId}}`)
+        .order("sort_order", { ascending: true });
+    if (qErr)
+        throw qErr;
+    // Generate tables rows
+    const historyRows = (histories || []).map((h) => `
+    <tr>
+      <td>${h.bikes?.bikecode ?? "Desconocido"}</td>
+      <td>${new Date(h.start_at).toLocaleDateString()}</td>
+      <td>${h.end_at ? new Date(h.end_at).toLocaleDateString() : '<span class="badge green">Activo</span>'}</td>
+      <td>${h.component_type_code || "—"}</td>
+      <td>${h.component_version || "—"}</td>
+      <td>${h.notes || "—"}</td>
+    </tr>
+  `).join("");
+    const errorRows = (errors || []).map((e) => `
+    <tr>
+      <td>${new Date(e.error_date).toLocaleDateString()}</td>
+      <td><strong>${e.bikes?.bikecode ?? "—"}</strong></td>
+      <td><span class="badge badge-component">${e.error_tags?.component ?? "—"}</span></td>
+      <td><span style="color: var(--accent-red); font-weight: 600;">${e.error_tags?.name ?? "—"}</span></td>
+      <td>${Number(e.km_at_failure || 0).toFixed(1)} km</td>
+      <td>${e.description ?? "—"}</td>
+    </tr>
+  `).join("");
+    // Feedback cards
+    const feedbackCards = feedbacks.length === 0
+        ? `
+      <div class="placeholder-view" style="padding: 20px; text-align: center; border: 1px dashed var(--border-color); border-radius: 12px; background: rgba(255,255,255,0.01);">
+        <p style="color: var(--text-secondary);">No hay valoraciones de rodadas registradas para este motor en este Field Test.</p>
+      </div>
+    `
+        : feedbacks.map((f) => {
+            const rawDate = f.test_ride_log
+                ? (f.test_ride_log.ride_date || f.test_ride_log.completion_date || f.test_ride_log.ride_date_txt || f.test_ride_log.completion_date_txt)
+                : null;
+            const dateStr = rawDate ? new Date(rawDate).toLocaleDateString() : '—';
+            const isoDate = rawDate ? new Date(rawDate).toISOString().split('T')[0] : '';
+            const distStr = f.test_ride_log ? `${f.test_ride_log.distance_km} km` : '—';
+            const elevStr = f.test_ride_log && f.test_ride_log.elevation_m != null ? `${f.test_ride_log.elevation_m} m` : '—';
+            const bikeCode = f.test_ride_log?.bike_code || '—';
+            const riderEmail = f.rider_email ? `<span class="rider-email" style="font-size: 13px; color: var(--text-secondary);">&lt;${f.rider_email}&gt;</span>` : '';
+            const motorErrorVal = f.answers?.motor_error ?? f.motor_error;
+            const errorAlertBell = motorErrorVal === 'Yes'
+                ? `
+            <span class="bell-alert" title="Motor Error Reported!" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 50%; width: 26px; height: 26px; color: var(--accent-red); margin-left: 8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: shake 1.5s infinite; transform-origin: top center;">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </span>
+          `
+                : '';
+            const telemetryHtml = renderDynamicSection('telemetry', 'Telemetry & Battery', questions || [], f);
+            const motorFeelHtml = renderDynamicSection('motor_feel', 'Motor Feel', questions || [], f);
+            const terrainHtml = renderDynamicSection('terrain', 'Terrain & Dynamic Mode', questions || [], f);
+            const errorDescVal = f.answers?.error_description ?? f.error_description;
+            const errorContent = motorErrorVal === 'Yes'
+                ? `
+            <div class="error-alert" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 15px;">
+              <strong>⚠️ Motor Error Logged:</strong> ${errorDescVal || 'No description provided.'}
+            </div>
+          `
+                : '';
+            return `
+          <details class="review-card review-card-accordion" data-date="${isoDate}" data-has-error="${motorErrorVal === 'Yes' ? 'true' : 'false'}" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; margin-bottom: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); overflow: hidden; display: block;">
+            <summary class="review-card-summary" style="background: rgba(255, 255, 255, 0.01); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; outline: none; list-style: none;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 16px; font-weight: 600; color: white;">👤 ${f.rider_name}</span>
+                ${riderEmail}
+                ${errorAlertBell}
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="meta-pill" style="background: var(--bg-input); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-primary);">🚴 Bici: ${bikeCode}</span>
+                <span class="meta-pill" style="background: var(--bg-input); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-primary);">📅 ${dateStr}</span>
+                <span class="meta-pill" style="background: var(--bg-input); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-primary);">🚴 ${distStr}</span>
+                <span class="meta-pill" style="background: var(--bg-input); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-primary);">🏔️ ${elevStr}</span>
+                <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); transition: transform 0.2s; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </summary>
+            
+            <div style="padding: 24px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 20px;">
+              ${errorContent}
+              
+              ${telemetryHtml}
+              ${motorFeelHtml}
+              ${terrainHtml}
+            </div>
+          </details>
+        `;
+        }).join('');
+    popup.document.open();
+    popup.document.write(`
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Dossier del Motor - ${motorSerial}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-input: #1e293b;
+      --border-color: #222e45;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      
+      --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      --border-radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    header {
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(to right, #6366f1, #06b6d4, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #a5b4fc;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    .summary-card h4 {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-card p {
+      font-size: 24px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge.green {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge.amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge.red {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-component {
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+
+    .ratings-grid {
+      display: flex;
+      gap: 30px;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    .rating-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .rating-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .text-feedback-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .info-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .info-block strong {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .info-block p {
+      font-size: 14px;
+      color: white;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      border-radius: 8px;
+    }
+
+    .feedback-section {
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .feedback-section h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #a5b4fc;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(0); }
+      15% { transform: rotate(8deg); }
+      30% { transform: rotate(-8deg); }
+      45% { transform: rotate(4deg); }
+      60% { transform: rotate(-4deg); }
+      75% { transform: rotate(2deg); }
+      90% { transform: rotate(-2deg); }
+    }
+
+    details.review-card-accordion[open] summary svg.chevron-icon {
+      transform: rotate(180deg);
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Dossier del Motor: ${motorSerial}</h1>
+      <p style="color: var(--text-secondary); font-size: 14px; margin-top: 5px;">Historial y registros asociados a este motor en este Field Test.</p>
+    </header>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h4>Total Kilómetros</h4>
+        <p style="color: var(--accent-cyan);">${totalKm.toFixed(1)} km</p>
+      </div>
+      <div class="summary-card">
+        <h4>Fallas de Taller</h4>
+        <p style="color: var(--accent-red);">${errors.length}</p>
+      </div>
+      <div class="summary-card">
+        <h4>Valoraciones Riders</h4>
+        <p style="color: var(--accent-green);">${feedbacks.length}</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Historial de Bicicletas (Bikes Swaps)</h2>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Bicicleta</th>
+              <th>Instalado el</th>
+              <th>Retirado el</th>
+              <th>Código Tipo</th>
+              <th>Versión</th>
+              <th>Comentarios</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historyRows || '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Este motor no tiene histórico de componentes registrado.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Fallas e Incidencias en Taller</h2>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Bicicleta</th>
+              <th>Componente</th>
+              <th>Error</th>
+              <th>KM Fallo</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${errorRows || '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No hay fallas de taller registradas para este motor en este Field Test.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Valoraciones y Opiniones de Riders</h2>
+      <div style="margin-top: 15px;">
+        ${feedbackCards}
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
+  `);
+    popup.document.close();
+}
 // ✅ 2. MAIN LOAD KM SUMMARY FUNCTION
 export async function loadKmSummary() {
     if (!context.selectedFTId)
@@ -1300,9 +1782,13 @@ export async function loadKmSummary() {
         }
         tr.dataset.bikeCode = (bike?.bikecode ?? r.bikecode).toLowerCase();
         tr.dataset.isActive = isActive ? "true" : "false";
+        const motorCode = bike?.motorcode ?? "—";
+        const motorCellHtml = motorCode !== "—"
+            ? `<span class="motor-link" style="color: var(--accent-cyan); cursor: pointer; text-decoration: underline; font-weight: 500;">${motorCode}</span>`
+            : "—";
         tr.innerHTML = `
       <td>${bike?.bikecode ?? r.bikecode}</td>
-      <td>${bike?.motorcode ?? "—"}</td>
+      <td>${motorCellHtml}</td>
       <td>${r.km.toFixed(1)} km</td>
       <td>${r.elevation.toLocaleString()} m</td>
       <td>${isActive ? '<span class="status-active">Active</span>' : '<span class="status-inactive">No active</span>'}</td>
@@ -1311,6 +1797,24 @@ export async function loadKmSummary() {
         <button class="primary-action btn-feedback" style="padding: 4px 8px; font-size: 12px; margin-left: 6px;">Ver Feedback</button>
       </td>
     `;
+        const motorLink = tr.querySelector(".motor-link");
+        if (motorLink) {
+            motorLink.onclick = () => {
+                const popup = window.open("", "_blank");
+                if (!popup)
+                    return;
+                popup.document.write("<p>Cargando historia del motor...</p>");
+                (async () => {
+                    try {
+                        await renderMotorPopup(popup, motorCode, context.selectedFTId);
+                    }
+                    catch (err) {
+                        console.error("Error loading motor dossier:", err);
+                        popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar el historial: ${err}</p>`);
+                    }
+                })();
+            };
+        }
         // Metrics click handler
         tr.querySelector(".btn-weekly").onclick = () => {
             const popup = window.open("", "_blank");
