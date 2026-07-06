@@ -1,5 +1,6 @@
 import { context, getColor, normalizeBikeCode } from "./ft.context.js";
 import { renderBikePopup, renderErrorsPopup, renderAddErrorPopup } from "./ft.errorLog.js";
+import { supabase } from "../../dao/supabaseclient.js";
 // ✅ 1. POPUPS HELPERS FOR KM SUMMARY
 function getFeelClass(feel) {
     if (!feel)
@@ -429,7 +430,69 @@ export function simpleBikePopup(popup, rows) {
   `);
     popup.document.close();
 }
-export function renderFeedbackPopup(popup, bikecode, feedbacks) {
+function renderDynamicSection(section, title, questions, f) {
+    const sectionQuestions = questions.filter(q => q.section === section);
+    if (sectionQuestions.length === 0)
+        return '';
+    const activeQuestions = sectionQuestions.filter(q => {
+        if (!q.parent_question_key)
+            return true;
+        const parentVal = f.answers?.[q.parent_question_key] ?? f[q.parent_question_key];
+        return parentVal === q.parent_trigger_value;
+    });
+    if (activeQuestions.length === 0)
+        return '';
+    const radioItems = activeQuestions.filter(q => q.input_type === 'radio');
+    const textItems = activeQuestions.filter(q => q.input_type !== 'radio');
+    let html = `<div class="feedback-section"><h4>${title}</h4>`;
+    if (radioItems.length > 0) {
+        html += `<div class="ratings-grid" style="margin-bottom: 15px;">`;
+        radioItems.forEach(q => {
+            const val = f.answers?.[q.question_key] ?? f[q.question_key];
+            const displayVal = val !== null && val !== undefined ? String(val) : '—';
+            let badgeColor = '';
+            if (q.question_key === 'motor_startup' || q.question_key === 'motor_stop' || q.question_key === 'assistance') {
+                badgeColor = getFeelClass(displayVal);
+            }
+            else if (q.question_key.includes('assistance')) {
+                badgeColor = getRatingClass(displayVal);
+            }
+            else {
+                const lower = displayVal.toLowerCase();
+                if (lower === 'yes' || lower === 'sí' || lower === 'smooth' || lower === 'suitable' || lower === 'si')
+                    badgeColor = 'green';
+                else if (lower === 'no' || lower === 'harsh')
+                    badgeColor = 'red';
+                else
+                    badgeColor = 'amber';
+            }
+            html += `
+        <div class="rating-item">
+          <span class="rating-label">${q.label}:</span>
+          <span class="badge ${badgeColor}">${displayVal}</span>
+        </div>
+      `;
+        });
+        html += `</div>`;
+    }
+    if (textItems.length > 0) {
+        html += `<div class="text-feedback-grid">`;
+        textItems.forEach(q => {
+            const val = f.answers?.[q.question_key] ?? f[q.question_key];
+            const displayVal = val !== null && val !== undefined ? String(val) : '—';
+            html += `
+        <div class="info-block">
+          <strong>${q.label}:</strong>
+          <p>${displayVal !== '—' ? `"${displayVal}"` : displayVal}</p>
+        </div>
+      `;
+        });
+        html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
+}
+export function renderFeedbackPopup(popup, bikecode, feedbacks, questions = []) {
     const feedbackCards = feedbacks.length === 0
         ? `
       <div class="placeholder-view">
@@ -452,7 +515,8 @@ export function renderFeedbackPopup(popup, bikecode, feedbacks) {
             const motorStr = f.test_ride_log && f.test_ride_log.motor_type ? f.test_ride_log.motor_type : '—';
             const riderEmail = f.rider_email ? `<span class="rider-email">&lt;${f.rider_email}&gt;</span>` : '';
             // Red bell alert if motor error exists
-            const errorAlertBell = f.motor_error === 'Yes'
+            const motorErrorVal = f.answers?.motor_error ?? f.motor_error;
+            const errorAlertBell = motorErrorVal === 'Yes'
                 ? `
             <span class="bell-alert" title="Motor Error Reported!">
               <svg class="bell-icon animate-bell" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -462,67 +526,21 @@ export function renderFeedbackPopup(popup, bikecode, feedbacks) {
             </span>
           `
                 : '';
-            // Dynamic Mode Terrains
-            const dynamicContent = f.test_dynamic_mode === 'Yes'
-                ? `
-            <div class="feedback-section">
-              <h4>Dynamic & AUTO Mode Performance</h4>
-              <div class="info-block" style="margin-bottom: 12px;">
-                <strong>General Experience with AUTO Mode:</strong>
-                <p class="opinion-text">${f.auto_mode_experience || '—'}</p>
-              </div>
-              <div class="terrain-grid">
-                <div class="terrain-card">
-                  <h5>Flat Terrain</h5>
-                  <span class="badge ${getRatingClass(f.flat_terrain_assistance)}">${f.flat_terrain_assistance || '—'}</span>
-                  <p>${f.flat_terrain_perception || 'No comment.'}</p>
-                </div>
-                <div class="terrain-card">
-                  <h5>Moderate Terrain</h5>
-                  <span class="badge ${getRatingClass(f.moderate_terrain_assistance)}">${f.moderate_terrain_assistance || '—'}</span>
-                  <p>${f.moderate_terrain_perception || 'No comment.'}</p>
-                </div>
-                <div class="terrain-card">
-                  <h5>Steep Terrain</h5>
-                  <span class="badge ${getRatingClass(f.text_dynamic_mode ? f.steep_terrain_assistance : '') || getRatingClass(f.steep_terrain_assistance)}">${f.steep_terrain_assistance || '—'}</span>
-                  <p>${f.steep_terrain_perception || 'No comment.'}</p>
-                </div>
-                <div class="terrain-card">
-                  <h5>Technical Terrain</h5>
-                  <span class="badge ${getRatingClass(f.technical_terrain_assistance)}">${f.technical_terrain_assistance || '—'}</span>
-                  <p>${f.technical_terrain_perception || 'No comment.'}</p>
-                </div>
-              </div>
-            </div>
-          `
-                : `
-            <div class="feedback-section empty-section">
-              <h4>Dynamic Mode: Not tested</h4>
-            </div>
-          `;
-            // App Experience
-            const appContent = f.use_app === 'Yes'
-                ? `
-            <div class="feedback-section">
-              <h4>Bike APP Experience</h4>
-              <p class="opinion-text">"${f.app_experience || '—'}"</p>
-            </div>
-          `
-                : `
-            <div class="feedback-section empty-section">
-              <h4>Bike APP: Not used</h4>
-            </div>
-          `;
+            // Dynamic sections
+            const telemetryHtml = renderDynamicSection('telemetry', 'Telemetry & Battery', questions, f);
+            const motorFeelHtml = renderDynamicSection('motor_feel', 'Motor Feel', questions, f);
+            const terrainHtml = renderDynamicSection('terrain', 'Terrain & Dynamic Mode', questions, f);
             // Error Status alert block inside the body
-            const errorContent = f.motor_error === 'Yes'
+            const errorDescVal = f.answers?.error_description ?? f.error_description;
+            const errorContent = motorErrorVal === 'Yes'
                 ? `
             <div class="error-alert">
-              <strong>⚠️ Motor Error Logged:</strong> ${f.error_description || 'No description provided.'}
+              <strong>⚠️ Motor Error Logged:</strong> ${errorDescVal || 'No description provided.'}
             </div>
           `
                 : '';
             return `
-          <details class="review-card review-card-accordion" data-date="${isoDate}" data-has-error="${f.motor_error === 'Yes' ? 'true' : 'false'}">
+          <details class="review-card review-card-accordion" data-date="${isoDate}" data-has-error="${motorErrorVal === 'Yes' ? 'true' : 'false'}">
             <summary class="review-card-summary">
               <div class="header-main-left">
                 <span class="rider-name">👤 ${f.rider_name}</span>
@@ -541,45 +559,9 @@ export function renderFeedbackPopup(popup, bikecode, feedbacks) {
             <div class="review-card-body">
               ${errorContent}
               
-              <div class="ratings-grid">
-                <div class="rating-item">
-                  <span class="rating-label">Startup:</span>
-                  <span class="badge ${getFeelClass(f.motor_startup)}">${f.motor_startup || '—'}</span>
-                </div>
-                <div class="rating-item">
-                  <span class="rating-label">Stop:</span>
-                  <span class="badge ${getFeelClass(f.motor_stop)}">${f.motor_stop || '—'}</span>
-                </div>
-                <div class="rating-item">
-                  <span class="rating-label">Assistance:</span>
-                  <span class="badge ${getFeelClass(f.assistance)}">${f.assistance || '—'}</span>
-                </div>
-              </div>
-
-              <div class="text-feedback-grid">
-                <div class="info-block">
-                  <strong>Power Feeling:</strong>
-                  <p>"${f.power_feeling || '—'}"</p>
-                </div>
-                <div class="info-block">
-                  <strong>Motor Feel / Noise:</strong>
-                  <p>"${f.motor_feel || '—'}"</p>
-                </div>
-              </div>
-
-              ${dynamicContent}
-              ${appContent}
-
-              <div class="comments-box">
-                <h4>General Comments / Opinion</h4>
-                <p class="main-comment">"${f.comments || '—'}"</p>
-                ${f.suggested_improvements ? `
-                  <div class="improvements-block">
-                    <strong>Suggested Improvements:</strong>
-                    <p>${f.suggested_improvements}</p>
-                  </div>
-                ` : ''}
-              </div>
+              ${telemetryHtml}
+              ${motorFeelHtml}
+              ${terrainHtml}
             </div>
           </details>
         `;
@@ -1354,7 +1336,14 @@ export async function loadKmSummary() {
             (async () => {
                 try {
                     const feedbacks = await context.service.getBikeFeedback(context.selectedFTId, bike?.bikecode ?? r.bikecode);
-                    renderFeedbackPopup(popup, bike?.bikecode ?? r.bikecode, feedbacks);
+                    const { data: questions, error: qErr } = await supabase
+                        .from("review_questions")
+                        .select("*")
+                        .or(`field_test_ids.is.null,field_test_ids.cs.{${context.selectedFTId}}`)
+                        .order("sort_order", { ascending: true });
+                    if (qErr)
+                        throw qErr;
+                    renderFeedbackPopup(popup, bike?.bikecode ?? r.bikecode, feedbacks, questions || []);
                 }
                 catch (err) {
                     console.error("Error loading feedback dossier:", err);
