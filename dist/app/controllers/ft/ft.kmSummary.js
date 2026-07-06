@@ -1126,13 +1126,52 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
       start_at,
       end_at,
       notes,
-      bikes(bikecode)
+      bikes(id, bikecode)
     `)
         .eq("component_type", "motor")
         .eq("component_serial_code", motorSerial)
         .order("start_at", { ascending: false });
     if (histErr)
         throw histErr;
+    // Let's build the periods list
+    const periods = [];
+    if (histories && histories.length > 0) {
+        histories.forEach((h) => {
+            if (h.bikes) {
+                periods.push({
+                    bikeId: h.bikes.id,
+                    bikecode: h.bikes.bikecode,
+                    start: new Date(h.start_at),
+                    end: h.end_at ? new Date(h.end_at) : null,
+                    notes: h.notes || "",
+                    typeCode: h.component_type_code || "",
+                    version: h.component_version || ""
+                });
+            }
+        });
+    }
+    // If periods is empty, check the bikes table for current assignment
+    if (periods.length === 0) {
+        const { data: currentBikes, error: cbErr } = await supabase
+            .from("bikes")
+            .select("*")
+            .eq("motorcode", motorSerial);
+        if (cbErr)
+            throw cbErr;
+        if (currentBikes && currentBikes.length > 0) {
+            currentBikes.forEach((b) => {
+                periods.push({
+                    bikeId: b.id,
+                    bikecode: b.bikecode,
+                    start: new Date("1970-01-01"),
+                    end: null,
+                    notes: "Asignación actual por defecto",
+                    typeCode: b.motortype || "",
+                    version: b.motorfirmware || ""
+                });
+            });
+        }
+    }
     // 2. Fetch all errors for this motor in this Field Test
     const { data: errors, error: errErr } = await supabase
         .from("bike_errors")
@@ -1156,21 +1195,68 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
     const assignedBikeCodes = new Set(assigned
         .filter(a => a && a.bikes)
         .map(a => normalizeBikeCode(a.bikes.bikecode)?.toLowerCase()));
-    // 4. Fetch all feedbacks for this motor
-    const { data: allFeedbacks, error: fbErr } = await supabase
-        .from("test_ride_feedback")
-        .select("*, test_ride_log!inner(*)")
-        .eq("test_ride_log.motor_type", motorSerial);
-    if (fbErr)
-        throw fbErr;
-    const feedbacks = (allFeedbacks || []).filter((f) => {
-        if (!f.test_ride_log)
-            return false;
-        const bCodeNorm = normalizeBikeCode(f.test_ride_log.bike_code)?.toLowerCase();
-        return bCodeNorm && assignedBikeCodes.has(bCodeNorm);
-    });
-    const totalKm = feedbacks.reduce((acc, f) => acc + (f.test_ride_log?.distance_km || 0), 0);
-    // 5. Fetch dynamic questions for rendering cards
+    const bikeCodes = periods.map(p => normalizeBikeCode(p.bikecode)?.toLowerCase()).filter(Boolean);
+    let feedbacks = [];
+    let totalKm = 0;
+    if (bikeCodes.length > 0) {
+        // 4. Fetch feedbacks for the associated bikes
+        const { data: allFeedbacks, error: fbErr } = await supabase
+            .from("test_ride_feedback")
+            .select("*, test_ride_log!inner(*)")
+            .in("test_ride_log.bike_code_sanitized", bikeCodes);
+        if (fbErr)
+            throw fbErr;
+        feedbacks = (allFeedbacks || []).filter((f) => {
+            if (!f.test_ride_log)
+                return false;
+            const bCodeNorm = normalizeBikeCode(f.test_ride_log.bike_code)?.toLowerCase();
+            if (!bCodeNorm || !assignedBikeCodes.has(bCodeNorm))
+                return false;
+            const rDateStr = f.test_ride_log.ride_date || f.test_ride_log.completion_date || f.test_ride_log.ride_date_txt || f.test_ride_log.completion_date_txt;
+            if (!rDateStr)
+                return false;
+            const rDate = new Date(rDateStr);
+            return periods.some(p => {
+                const pBike = normalizeBikeCode(p.bikecode)?.toLowerCase();
+                if (pBike !== bCodeNorm)
+                    return false;
+                return rDate >= p.start && (!p.end || rDate <= p.end);
+            });
+        });
+        // 5. Fetch all rides for the associated bikes to calculate total km
+        const { data: rides, error: ridesErr } = await supabase
+            .from("test_ride_log")
+            .select("*")
+            .in("bike_code_sanitized", bikeCodes);
+        if (ridesErr)
+            throw ridesErr;
+        const matchingRides = (rides || []).filter((r) => {
+            const rBike = normalizeBikeCode(r.bike_code)?.toLowerCase();
+            if (!rBike || !assignedBikeCodes.has(rBike))
+                return false;
+            const rDateStr = r.ride_date || r.completion_date || r.ride_date_txt || r.completion_date_txt;
+            if (!rDateStr)
+                return false;
+            const rDate = new Date(rDateStr);
+            return periods.some(p => {
+                const pBike = normalizeBikeCode(p.bikecode)?.toLowerCase();
+                if (pBike !== rBike)
+                    return false;
+                return rDate >= p.start && (!p.end || rDate <= p.end);
+            });
+        });
+        totalKm = matchingRides.reduce((sum, r) => {
+            let dist = Number(r.distance_km || 0);
+            if (dist >= 100) {
+                const numDigits = String(Math.floor(dist)).length;
+                if (numDigits > 2) {
+                    dist = dist / Math.pow(10, numDigits - 2);
+                }
+            }
+            return sum + dist;
+        }, 0);
+    }
+    // 6. Fetch dynamic questions for rendering cards
     const { data: questions, error: qErr } = await supabase
         .from("review_questions")
         .select("*")
@@ -1179,14 +1265,14 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
     if (qErr)
         throw qErr;
     // Generate tables rows
-    const historyRows = (histories || []).map((h) => `
+    const historyRows = periods.map((p) => `
     <tr>
-      <td>${h.bikes?.bikecode ?? "Desconocido"}</td>
-      <td>${new Date(h.start_at).toLocaleDateString()}</td>
-      <td>${h.end_at ? new Date(h.end_at).toLocaleDateString() : '<span class="badge green">Activo</span>'}</td>
-      <td>${h.component_type_code || "—"}</td>
-      <td>${h.component_version || "—"}</td>
-      <td>${h.notes || "—"}</td>
+      <td><strong>${p.bikecode}</strong></td>
+      <td>${p.start.getFullYear() === 1970 ? 'Inicial' : p.start.toLocaleDateString()}</td>
+      <td>${p.end ? p.end.toLocaleDateString() : '<span class="badge green">Activo</span>'}</td>
+      <td>${p.typeCode || "—"}</td>
+      <td>${p.version || "—"}</td>
+      <td>${p.notes || "—"}</td>
     </tr>
   `).join("");
     const errorRows = (errors || []).map((e) => `
