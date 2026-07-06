@@ -134,7 +134,7 @@ export class FieldTestService {
         return all;
     }
     getRideDate(r) {
-        const dateStr = r.ride_date || r.completion_date;
+        const dateStr = r.ride_date || r.completion_date || r.ride_date_txt || r.completion_date_txt;
         return dateStr ? new Date(dateStr) : null;
     }
     correctDistance(dist) {
@@ -343,15 +343,18 @@ export class FieldTestService {
             .filter((f) => {
             if (!f.test_ride_log)
                 return false;
-            const dateStr = f.test_ride_log.ride_date || f.test_ride_log.completion_date;
+            const dateStr = f.test_ride_log.ride_date ||
+                f.test_ride_log.completion_date ||
+                f.test_ride_log.ride_date_txt ||
+                f.test_ride_log.completion_date_txt;
             if (!dateStr)
                 return false;
             const rDate = new Date(dateStr);
             return rDate >= start && (!end || rDate <= end);
         })
             .sort((a, b) => {
-            const dateA = new Date(a.test_ride_log.ride_date || a.test_ride_log.completion_date).getTime();
-            const dateB = new Date(b.test_ride_log.ride_date || b.test_ride_log.completion_date).getTime();
+            const dateA = new Date(a.test_ride_log.ride_date || a.test_ride_log.completion_date || a.test_ride_log.ride_date_txt || a.test_ride_log.completion_date_txt).getTime();
+            const dateB = new Date(b.test_ride_log.ride_date || b.test_ride_log.completion_date || b.test_ride_log.ride_date_txt || b.test_ride_log.completion_date_txt).getTime();
             return dateB - dateA;
         });
     }

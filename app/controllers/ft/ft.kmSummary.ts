@@ -445,8 +445,11 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
       </div>
     `
     : feedbacks.map((f: any) => {
-        const dateStr = f.test_ride_log ? new Date(f.test_ride_log.ride_date).toLocaleDateString() : '—';
-        const isoDate = f.test_ride_log && f.test_ride_log.ride_date ? new Date(f.test_ride_log.ride_date).toISOString().split('T')[0] : '';
+        const rawDate = f.test_ride_log 
+          ? (f.test_ride_log.ride_date || f.test_ride_log.completion_date || f.test_ride_log.ride_date_txt || f.test_ride_log.completion_date_txt) 
+          : null;
+        const dateStr = rawDate ? new Date(rawDate).toLocaleDateString() : '—';
+        const isoDate = rawDate ? new Date(rawDate).toISOString().split('T')[0] : '';
         const distStr = f.test_ride_log ? `${f.test_ride_log.distance_km} km` : '—';
         const elevStr = f.test_ride_log && f.test_ride_log.elevation_m != null ? `${f.test_ride_log.elevation_m} m` : '—';
         const motorStr = f.test_ride_log && f.test_ride_log.motor_type ? f.test_ride_log.motor_type : '—';
