@@ -10,6 +10,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  const canEdit = session.capabilities.canEditData;
+
+  // Adjust layout if user cannot edit questions
+  if (!canEdit) {
+    const editorPanel = document.querySelector(".app-container > .panel:first-child") as HTMLElement;
+    if (editorPanel) {
+      editorPanel.style.display = "none";
+    }
+    const appContainer = document.querySelector(".app-container") as HTMLElement;
+    if (appContainer) {
+      appContainer.style.gridTemplateColumns = "1fr";
+    }
+    const actionsHeader = document.querySelector("th:last-child") as HTMLElement;
+    if (actionsHeader) {
+      actionsHeader.style.display = "none";
+    }
+  }
+
   // 1. DOM Elements
   const form = document.getElementById("question-form") as HTMLFormElement;
   const editIdInput = document.getElementById("edit-id") as HTMLInputElement;
@@ -106,7 +124,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 3. Load & Render Questions Table
   async function loadQuestions() {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Cargando preguntas...</td></tr>';
+    const colSpan = canEdit ? 8 : 7;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: var(--text-secondary);">Cargando preguntas...</td></tr>`;
     
     try {
       const filterVal = filterFieldTest.value;
@@ -128,7 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       tbody.innerHTML = "";
       if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No se encontraron preguntas.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: var(--text-secondary);">No se encontraron preguntas.</td></tr>`;
         return;
       }
 
@@ -192,26 +211,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         tr.appendChild(tdFT);
 
         // Actions
-        const tdActions = document.createElement("td");
-        tdActions.style.textAlign = "right";
+        if (canEdit) {
+          const tdActions = document.createElement("td");
+          tdActions.style.textAlign = "right";
 
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "Editar";
-        editBtn.style.padding = "4px 8px";
-        editBtn.style.fontSize = "12px";
-        editBtn.style.marginRight = "6px";
-        editBtn.onclick = () => startEdit(q);
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Editar";
+          editBtn.style.padding = "4px 8px";
+          editBtn.style.fontSize = "12px";
+          editBtn.style.marginRight = "6px";
+          editBtn.onclick = () => startEdit(q);
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Borrar";
-        deleteBtn.className = "danger-action";
-        deleteBtn.style.padding = "4px 8px";
-        deleteBtn.style.fontSize = "12px";
-        deleteBtn.onclick = () => deleteQuestion(q.id, q.label);
+          const deleteBtn = document.createElement("button");
+          deleteBtn.textContent = "Borrar";
+          deleteBtn.className = "danger-action";
+          deleteBtn.style.padding = "4px 8px";
+          deleteBtn.style.fontSize = "12px";
+          deleteBtn.onclick = () => deleteQuestion(q.id, q.label);
 
-        tdActions.appendChild(editBtn);
-        tdActions.appendChild(deleteBtn);
-        tr.appendChild(tdActions);
+          tdActions.appendChild(editBtn);
+          tdActions.appendChild(deleteBtn);
+          tr.appendChild(tdActions);
+        }
 
         tbody.appendChild(tr);
       });
@@ -272,6 +293,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 5. Handle Form Submit (Create / Update)
   form.onsubmit = async (e) => {
     e.preventDefault();
+    if (!canEdit) {
+      showStatus("No tienes permisos para guardar preguntas.", "error");
+      return;
+    }
     showStatus("Guardando...", "info");
 
     const id = editIdInput.value;
@@ -339,6 +364,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 6. Delete question
   async function deleteQuestion(id: string, label: string) {
+    if (!canEdit) {
+      showStatus("No tienes permisos para eliminar preguntas.", "error");
+      return;
+    }
     if (!confirm(`¿Estás seguro de que quieres borrar la pregunta "${label}"?`)) return;
 
     showStatus("Eliminando...", "info");
