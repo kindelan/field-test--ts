@@ -1189,7 +1189,6 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
         bikes(bikecode),
         error_tags(name, component)
       `)
-            .eq("field_test_id", fieldTestId)
             .in("bike_id", periodBikeIds)
             .order("error_date", { ascending: false });
         if (errErr)
@@ -1212,11 +1211,6 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
             });
         });
     }
-    // 3. Fetch all assigned bikes for this Field Test to filter reviews
-    const assigned = await context.service.getBikesAssigned(fieldTestId);
-    const assignedBikeCodes = new Set(assigned
-        .filter(a => a && a.bikes)
-        .map(a => normalizeBikeCode(a.bikes.bikecode)?.toLowerCase()));
     const bikeCodes = periods.map(p => normalizeBikeCode(p.bikecode)?.toLowerCase()).filter(Boolean);
     let feedbacks = [];
     let totalKm = 0;
@@ -1231,7 +1225,7 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
             if (!f.test_ride_log)
                 return false;
             const bCodeNorm = normalizeBikeCode(f.test_ride_log.bike_code)?.toLowerCase();
-            if (!bCodeNorm || !assignedBikeCodes.has(bCodeNorm))
+            if (!bCodeNorm)
                 return false;
             const rDateStr = f.test_ride_log.ride_date || f.test_ride_log.completion_date || f.test_ride_log.ride_date_txt || f.test_ride_log.completion_date_txt;
             if (!rDateStr)
@@ -1263,7 +1257,7 @@ export async function renderMotorPopup(popup, motorSerial, fieldTestId) {
         }
         const matchingRides = allRides.filter((r) => {
             const rBike = normalizeBikeCode(r.bike_code)?.toLowerCase();
-            if (!rBike || !assignedBikeCodes.has(rBike))
+            if (!rBike)
                 return false;
             const rDateStr = r.ride_date || r.completion_date || r.ride_date_txt || r.completion_date_txt;
             if (!rDateStr)
