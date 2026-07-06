@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseclient.js";
 import type { CreateRideLogDTO, CreateRideFeedbackDTO } from "../dto/index.js";
+import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 
 export class RideLogDAO {
   async insertRideLog(dto: CreateRideLogDTO): Promise<string> {
@@ -9,7 +10,7 @@ export class RideLogDAO {
         ride_date_txt: dto.ride_date_txt,
         completion_date_txt: dto.completion_date_txt,
         bike_code: dto.bike_code,
-        bike_code_sanitized: dto.bike_code.toLowerCase().replace(/\s+/g, ""),
+        bike_code_sanitized: (normalizeBikeCode(dto.bike_code) || dto.bike_code).toLowerCase().replace(/\s+/g, ""),
         distance_km: dto.distance_km,
         elevation_m: dto.elevation_m ?? null,
         motor_type: dto.motor_type ?? null
