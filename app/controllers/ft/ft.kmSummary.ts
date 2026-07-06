@@ -1221,11 +1221,10 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
   let totalKm = 0;
 
   if (bikeCodes.length > 0) {
-    // 4. Fetch feedbacks for the associated bikes
+    // 4. Fetch all feedbacks from the database (we filter in memory since bike_code_sanitized is not reliable)
     const { data: allFeedbacks, error: fbErr } = await supabase
       .from("test_ride_feedback")
-      .select("*, test_ride_log!inner(*)")
-      .in("test_ride_log.bike_code_sanitized", bikeCodes);
+      .select("*, test_ride_log!inner(*)");
 
     if (fbErr) throw fbErr;
 
@@ -1245,15 +1244,23 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
       });
     });
 
-    // 5. Fetch all rides for the associated bikes to calculate total km
-    const { data: rides, error: ridesErr } = await supabase
-      .from("test_ride_log")
-      .select("*")
-      .in("bike_code_sanitized", bikeCodes);
+    // 5. Fetch all rides in the database to calculate total km (filtering in memory like the dashboard)
+    let allRides: any[] = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error: chunkErr } = await supabase
+        .from("test_ride_log")
+        .select("*")
+        .range(startRange, startRange + 999);
 
-    if (ridesErr) throw ridesErr;
+      if (chunkErr) throw chunkErr;
+      if (!chunk || chunk.length === 0) break;
+      allRides = allRides.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
+    }
 
-    const matchingRides = (rides || []).filter((r: any) => {
+    const matchingRides = allRides.filter((r: any) => {
       const rBike = normalizeBikeCode(r.bike_code)?.toLowerCase();
       if (!rBike || !assignedBikeCodes.has(rBike)) return false;
 
@@ -1288,6 +1295,8 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
     .order("sort_order", { ascending: true });
 
   if (qErr) throw qErr;
+
+  let debugHtml = ""; // Removed technical debug block per user request
 
   // Generate tables rows
   const historyRows = periods.map((p: any) => `
@@ -1659,6 +1668,8 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
         <p style="color: var(--accent-green);">${feedbacks.length}</p>
       </div>
     </div>
+
+    ${debugHtml}
 
     <div class="card">
       <h2>Historial de Bicicletas (Bikes Swaps)</h2>
