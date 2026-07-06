@@ -1188,24 +1188,48 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
     }
   }
 
-  // 2. Fetch all errors for this motor in this Field Test
-  const { data: errors, error: errErr } = await supabase
-    .from("bike_errors")
-    .select(`
-      id,
-      error_date,
-      km_at_failure,
-      description,
-      motor_code,
-      battery_code,
-      bikes(bikecode),
-      error_tags(name, component)
-    `)
-    .eq("motor_code", motorSerial)
-    .eq("field_test_id", fieldTestId)
-    .order("error_date", { ascending: false });
+  // 2. Fetch all errors for the associated bikes in this Field Test and filter by period
+  const periodBikeIds = periods.map(p => p.bikeId).filter(Boolean);
+  let errors: any[] = [];
+  
+  if (periodBikeIds.length > 0) {
+    const { data: allErrors, error: errErr } = await supabase
+      .from("bike_errors")
+      .select(`
+        id,
+        error_date,
+        km_at_failure,
+        description,
+        motor_code,
+        battery_code,
+        bike_id,
+        bikes(bikecode),
+        error_tags(name, component)
+      `)
+      .eq("field_test_id", fieldTestId)
+      .in("bike_id", periodBikeIds)
+      .order("error_date", { ascending: false });
 
-  if (errErr) throw errErr;
+    if (errErr) throw errErr;
+
+    // Filter errors in memory
+    errors = (allErrors || []).filter((e: any) => {
+      // If it explicitly matches the motor code, keep it
+      if (e.motor_code && e.motor_code === motorSerial) {
+        return true;
+      }
+
+      // Otherwise, check if the error date falls within the period when the motor was active on this bike
+      const eDateStr = e.error_date;
+      if (!eDateStr) return false;
+      const eDate = new Date(eDateStr);
+
+      return periods.some(p => {
+        if (p.bikeId !== e.bike_id) return false;
+        return eDate >= p.start && (!p.end || eDate <= p.end);
+      });
+    });
+  }
 
   // 3. Fetch all assigned bikes for this Field Test to filter reviews
   const assigned = await context.service.getBikesAssigned(fieldTestId);
