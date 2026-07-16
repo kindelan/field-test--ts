@@ -1,6 +1,7 @@
 import { context, formatWeekYear, getColor, normalizeBikeCode } from "./ft.context.js";
 import { renderBikePopup, renderErrorsPopup, renderAddErrorPopup } from "./ft.errorLog.js";
 import { supabase } from "../../dao/supabaseclient.js";
+import { isRideInMotorPeriods, isErrorInMotorPeriods } from "../../utils/motorHistory.js";
 
 // ✅ 1. POPUPS HELPERS FOR KM SUMMARY
 function getFeelClass(feel: string): string {
@@ -1211,22 +1212,15 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
 
     if (errErr) throw errErr;
 
-    // Filter errors in memory
+    // Filter errors in memory using helper
     errors = (allErrors || []).filter((e: any) => {
-      // If it explicitly matches the motor code, keep it
       if (e.motor_code && e.motor_code === motorSerial) {
         return true;
       }
-
-      // Otherwise, check if the error date falls within the period when the motor was active on this bike
       const eDateStr = e.error_date;
       if (!eDateStr) return false;
       const eDate = new Date(eDateStr);
-
-      return periods.some(p => {
-        if (p.bikeId !== e.bike_id) return false;
-        return eDate >= p.start && (!p.end || eDate <= p.end);
-      });
+      return isErrorInMotorPeriods(e.bike_id, eDate, periods);
     });
   }
 
@@ -1245,18 +1239,10 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
 
     feedbacks = (allFeedbacks || []).filter((f: any) => {
       if (!f.test_ride_log) return false;
-      const bCodeNorm = normalizeBikeCode(f.test_ride_log.bike_code)?.toLowerCase();
-      if (!bCodeNorm) return false;
-
       const rDateStr = f.test_ride_log.ride_date || f.test_ride_log.completion_date || f.test_ride_log.ride_date_txt || f.test_ride_log.completion_date_txt;
       if (!rDateStr) return false;
       const rDate = new Date(rDateStr);
-
-      return periods.some(p => {
-        const pBike = normalizeBikeCode(p.bikecode)?.toLowerCase();
-        if (pBike !== bCodeNorm) return false;
-        return rDate >= p.start && (!p.end || rDate <= p.end);
-      });
+      return isRideInMotorPeriods(f.test_ride_log.bike_code, rDate, periods);
     });
 
     // 5. Fetch all rides in the database to calculate total km (filtering in memory like the dashboard)
@@ -1276,18 +1262,10 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
     }
 
     const matchingRides = allRides.filter((r: any) => {
-      const rBike = normalizeBikeCode(r.bike_code)?.toLowerCase();
-      if (!rBike) return false;
-
       const rDateStr = r.ride_date || r.completion_date || r.ride_date_txt || r.completion_date_txt;
       if (!rDateStr) return false;
       const rDate = new Date(rDateStr);
-
-      return periods.some(p => {
-        const pBike = normalizeBikeCode(p.bikecode)?.toLowerCase();
-        if (pBike !== rBike) return false;
-        return rDate >= p.start && (!p.end || rDate <= p.end);
-      });
+      return isRideInMotorPeriods(r.bike_code, rDate, periods);
     });
 
     totalKm = matchingRides.reduce((sum, r) => {

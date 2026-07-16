@@ -11,6 +11,8 @@
   },
   "include": ["app/**/*.ts"],
   "exclude": [
-    "supabase/functions"
+    "supabase/functions",
+    "app/**/*.test.ts",
+    "app/utils/run-tests.ts"
   ]
 }

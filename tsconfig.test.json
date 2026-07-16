@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "strict": false,
+    "rootDir": ".",
+    "outDir": "dist-test",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  },
+  "include": ["app/**/*.ts"],
+  "exclude": [
+    "supabase/functions"
+  ]
+}
