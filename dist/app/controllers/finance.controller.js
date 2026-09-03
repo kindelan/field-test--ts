@@ -53,7 +53,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     const kpiFtTotalKm = document.getElementById("kpi-ft-total-km");
     const kpiFtAvgCostKm = document.getElementById("kpi-ft-avg-cost-km");
     const ftInvoicesTableBody = document.querySelector("#ft-invoices-table tbody");
+    // DOM Filter & Sort Controls
+    const filterInvSearchInput = document.getElementById("filter-inv-search");
+    const filterInvFtSelect = document.getElementById("filter-inv-ft");
+    const filterBikeInvSearchInput = document.getElementById("filter-bike-inv-search");
+    const filterFtInvSearchInput = document.getElementById("filter-ft-inv-search");
     let allBikes = [];
+    // Table Data & Sorting State
+    let rawInvoices = [];
+    let filterInvSearch = "";
+    let filterInvFt = "";
+    let invSortKey = "period";
+    let invSortOrder = "desc";
+    let rawBikeInvoices = [];
+    let filterBikeSearch = "";
+    let bikeSortKey = "period";
+    let bikeSortOrder = "desc";
+    let rawFtInvoices = [];
+    let filterFtSearch = "";
+    let ftSortKey = "period";
+    let ftSortOrder = "desc";
     // Restringir controles para no-administradores
     if (!session.capabilities.canEditData) {
         if (registerPanel) {
@@ -80,6 +99,71 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (container) {
             container.classList.add("full-width");
         }
+    }
+    // Helper de Ordenación
+    function updateSortHeaderIcons(tableId, activeSortKey, activeOrder) {
+        const headers = document.querySelectorAll(`#${tableId} th.sortable`);
+        headers.forEach((th) => {
+            const key = th.getAttribute("data-sort");
+            const iconSpan = th.querySelector(".sort-icon");
+            if (key === activeSortKey) {
+                th.classList.add("active");
+                if (iconSpan)
+                    iconSpan.textContent = activeOrder === "asc" ? "▲" : "▼";
+            }
+            else {
+                th.classList.remove("active");
+                if (iconSpan)
+                    iconSpan.textContent = "⇅";
+            }
+        });
+    }
+    function sortInvoicesArray(list, key, order) {
+        const factor = order === "asc" ? 1 : -1;
+        return [...list].sort((a, b) => {
+            let valA;
+            let valB;
+            if (key === "number") {
+                valA = (a.invoice_number || "").toLowerCase();
+                valB = (b.invoice_number || "").toLowerCase();
+            }
+            else if (key === "field_test") {
+                valA = (a.field_test?.name || "").toLowerCase();
+                valB = (b.field_test?.name || "").toLowerCase();
+            }
+            else if (key === "provider") {
+                valA = (a.provider || "").toLowerCase();
+                valB = (b.provider || "").toLowerCase();
+            }
+            else if (key === "amount") {
+                valA = Number(a.amount || 0);
+                valB = Number(b.amount || 0);
+            }
+            else if (key === "allocatedAmount") {
+                valA = Number(a.allocatedAmount || 0);
+                valB = Number(b.allocatedAmount || 0);
+            }
+            else if (key === "period") {
+                valA = new Date(a.start_date || 0).getTime();
+                valB = new Date(b.start_date || 0).getTime();
+            }
+            else if (key === "km") {
+                valA = Number(a.totalInvoiceKm || a.km || 0);
+                valB = Number(b.totalInvoiceKm || b.km || 0);
+            }
+            else if (key === "costPerKm") {
+                valA = a.costPerKm !== null ? Number(a.costPerKm) : -1;
+                valB = b.costPerKm !== null ? Number(b.costPerKm) : -1;
+            }
+            else {
+                return 0;
+            }
+            if (valA < valB)
+                return -1 * factor;
+            if (valA > valB)
+                return 1 * factor;
+            return 0;
+        });
     }
     // 1. GESTIÓN DE TABS
     subtabListBtn.addEventListener("click", () => {
@@ -163,6 +247,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 option.textContent = ft.name;
                 selectInvoiceFt.appendChild(option);
             });
+            // Rellenar dropdown de filtro general
+            if (filterInvFtSelect) {
+                filterInvFtSelect.innerHTML = '<option value="">Todos los Field Tests</option>';
+                fieldTests.forEach(ft => {
+                    const option = document.createElement("option");
+                    option.value = ft.id;
+                    option.textContent = ft.name;
+                    filterInvFtSelect.appendChild(option);
+                });
+            }
             // Rellenar dropdown de análisis
             selectAnalysisFt.innerHTML = '<option value="" disabled selected>Seleccione un Field Test...</option>';
             fieldTests.forEach(ft => {
@@ -230,127 +324,167 @@ document.addEventListener("DOMContentLoaded", async () => {
             alertContainerGen.innerHTML = '<div class="alert alert-error">Error cargando bicicletas del sistema.</div>';
         }
     }
+    // RENDERIZADO Y FILTRADO DE TABLA GENERAL
+    function renderInvoicesTable() {
+        invoicesTableBody.innerHTML = "";
+        const searchLow = filterInvSearch.toLowerCase();
+        let filtered = rawInvoices.filter(inv => {
+            const matchesSearch = !searchLow ||
+                (inv.invoice_number || "").toLowerCase().includes(searchLow) ||
+                (inv.provider || "").toLowerCase().includes(searchLow);
+            const matchesFt = !filterInvFt || inv.field_test_id === filterInvFt;
+            return matchesSearch && matchesFt;
+        });
+        filtered = sortInvoicesArray(filtered, invSortKey, invSortOrder);
+        updateSortHeaderIcons("invoices-table", invSortKey, invSortOrder);
+        if (filtered.length === 0) {
+            invoicesTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No hay facturas que coincidan con los filtros.</td></tr>';
+            return;
+        }
+        filtered.forEach(inv => {
+            const tr = document.createElement("tr");
+            // Factura
+            const tdNumber = document.createElement("td");
+            tdNumber.innerHTML = `<strong>${inv.invoice_number}</strong>`;
+            tr.appendChild(tdNumber);
+            // Field Test
+            const tdFieldTest = document.createElement("td");
+            if (inv.field_test) {
+                tdFieldTest.innerHTML = `<span class="badge badge-secondary">${inv.field_test.name}</span>`;
+            }
+            else {
+                tdFieldTest.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin test</span>';
+            }
+            tr.appendChild(tdFieldTest);
+            // Proveedor
+            const tdProvider = document.createElement("td");
+            tdProvider.textContent = inv.provider;
+            tr.appendChild(tdProvider);
+            // Importe
+            const tdAmount = document.createElement("td");
+            tdAmount.textContent = `${Number(inv.amount).toFixed(2)} €`;
+            tr.appendChild(tdAmount);
+            // Periodo
+            const tdPeriod = document.createElement("td");
+            const start = new Date(inv.start_date).toLocaleDateString();
+            const end = new Date(inv.end_date).toLocaleDateString();
+            tdPeriod.textContent = `${start} - ${end}`;
+            tr.appendChild(tdPeriod);
+            // Asignación / Costo por Km (REPARTO PROPORCIONAL)
+            const tdAlloc = document.createElement("td");
+            if (!inv.bikesCalculated || inv.bikesCalculated.length === 0) {
+                tdAlloc.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin asignación</span>';
+            }
+            else {
+                tdAlloc.innerHTML = inv.bikesCalculated.map((b) => {
+                    const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km en periodo</span>';
+                    return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
+                }).join("");
+            }
+            tr.appendChild(tdAlloc);
+            // Documento
+            const tdDoc = document.createElement("td");
+            if (inv.file_url) {
+                const a = document.createElement("a");
+                a.className = "doc-link";
+                a.textContent = "📄 Ver Factura";
+                a.onclick = () => {
+                    const fileContent = inv.file_url;
+                    if (fileContent.startsWith("data:")) {
+                        const win = window.open();
+                        if (win) {
+                            const title = inv.file_name || "Documento";
+                            win.document.write(`
+                <html>
+                  <head>
+                    <title>${title}</title>
+                    <style>body { margin: 0; background: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style>
+                  </head>
+                  <body>
+                    ${fileContent.startsWith("data:application/pdf")
+                                ? `<embed src="${fileContent}" type="application/pdf" width="100%" height="100%"/>`
+                                : `<img src="${fileContent}" style="max-width:100%; max-height:100%; object-fit:contain;"/>`}
+                  </body>
+                </html>
+              `);
+                            win.document.close();
+                        }
+                    }
+                    else {
+                        window.open(fileContent, '_blank');
+                    }
+                };
+                tdDoc.appendChild(a);
+            }
+            else {
+                tdDoc.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin adjunto</span>';
+            }
+            tr.appendChild(tdDoc);
+            // Acciones (Eliminar)
+            if (session.capabilities.canEditData) {
+                const tdActions = document.createElement("td");
+                const btnDel = document.createElement("button");
+                btnDel.className = "btn-secondary";
+                btnDel.style.color = "var(--accent-red)";
+                btnDel.style.borderColor = "rgba(239, 68, 68, 0.2)";
+                btnDel.style.padding = "6px 12px";
+                btnDel.style.fontSize = "12px";
+                btnDel.textContent = "Eliminar";
+                btnDel.addEventListener("click", async () => {
+                    if (confirm(`¿Estás seguro de eliminar la factura ${inv.invoice_number}?`)) {
+                        try {
+                            await financeService.deleteInvoice(inv.id);
+                            showToast("Factura eliminada correctamente", "success");
+                            alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura eliminada correctamente.</div>';
+                            loadInvoicesList();
+                        }
+                        catch (err) {
+                            console.error(err);
+                            showToast("Error al eliminar la factura: " + (err.message || err), "error");
+                            alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al eliminar: ${err.message || err}</div>`;
+                        }
+                    }
+                });
+                tdActions.appendChild(btnDel);
+                tr.appendChild(tdActions);
+            }
+            invoicesTableBody.appendChild(tr);
+        });
+    }
+    // Eventos de Filtro e Header Sorting - Vista General
+    if (filterInvSearchInput) {
+        filterInvSearchInput.addEventListener("input", () => {
+            filterInvSearch = filterInvSearchInput.value.trim();
+            renderInvoicesTable();
+        });
+    }
+    if (filterInvFtSelect) {
+        filterInvFtSelect.addEventListener("change", () => {
+            filterInvFt = filterInvFtSelect.value;
+            renderInvoicesTable();
+        });
+    }
+    document.querySelectorAll("#invoices-table th.sortable").forEach((th) => {
+        th.addEventListener("click", () => {
+            const key = th.getAttribute("data-sort");
+            if (!key)
+                return;
+            if (invSortKey === key) {
+                invSortOrder = invSortOrder === "asc" ? "desc" : "asc";
+            }
+            else {
+                invSortKey = key;
+                invSortOrder = "asc";
+            }
+            renderInvoicesTable();
+        });
+    });
     // 3. CARGAR LISTADO DE FACTURAS
     async function loadInvoicesList() {
         try {
             invoicesTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Cargando facturas y telemetría...</td></tr>';
-            const invoices = await financeService.listInvoicesWithCalculations();
-            invoicesTableBody.innerHTML = "";
-            if (invoices.length === 0) {
-                invoicesTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No hay facturas registradas.</td></tr>';
-                return;
-            }
-            invoices.forEach(inv => {
-                const tr = document.createElement("tr");
-                // Factura
-                const tdNumber = document.createElement("td");
-                tdNumber.innerHTML = `<strong>${inv.invoice_number}</strong>`;
-                tr.appendChild(tdNumber);
-                // Field Test
-                const tdFieldTest = document.createElement("td");
-                if (inv.field_test) {
-                    tdFieldTest.innerHTML = `<span class="badge badge-secondary">${inv.field_test.name}</span>`;
-                }
-                else {
-                    tdFieldTest.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin test</span>';
-                }
-                tr.appendChild(tdFieldTest);
-                // Proveedor
-                const tdProvider = document.createElement("td");
-                tdProvider.textContent = inv.provider;
-                tr.appendChild(tdProvider);
-                // Importe
-                const tdAmount = document.createElement("td");
-                tdAmount.textContent = `${Number(inv.amount).toFixed(2)} €`;
-                tr.appendChild(tdAmount);
-                // Periodo
-                const tdPeriod = document.createElement("td");
-                const start = new Date(inv.start_date).toLocaleDateString();
-                const end = new Date(inv.end_date).toLocaleDateString();
-                tdPeriod.textContent = `${start} - ${end}`;
-                tr.appendChild(tdPeriod);
-                // Asignación / Costo por Km
-                const tdAlloc = document.createElement("td");
-                if (!inv.bikesCalculated || inv.bikesCalculated.length === 0) {
-                    tdAlloc.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin asignación</span>';
-                }
-                else {
-                    tdAlloc.innerHTML = inv.bikesCalculated.map((b) => {
-                        const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km en periodo</span>';
-                        return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
-                    }).join("");
-                }
-                tr.appendChild(tdAlloc);
-                // Documento
-                const tdDoc = document.createElement("td");
-                if (inv.file_url) {
-                    const a = document.createElement("a");
-                    a.className = "doc-link";
-                    a.textContent = "📄 Ver Factura";
-                    a.onclick = () => {
-                        const fileContent = inv.file_url;
-                        if (fileContent.startsWith("data:")) {
-                            // Retrocompatibilidad para facturas antiguas en Base64
-                            const win = window.open();
-                            if (win) {
-                                const title = inv.file_name || "Documento";
-                                win.document.write(`
-                  <html>
-                    <head>
-                      <title>${title}</title>
-                      <style>body { margin: 0; background: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style>
-                    </head>
-                    <body>
-                      ${fileContent.startsWith("data:application/pdf")
-                                    ? `<embed src="${fileContent}" type="application/pdf" width="100%" height="100%"/>`
-                                    : `<img src="${fileContent}" style="max-width:100%; max-height:100%; object-fit:contain;"/>`}
-                    </body>
-                  </html>
-                `);
-                                win.document.close();
-                            }
-                        }
-                        else {
-                            // Nuevas URLs de Supabase Storage: abrir en pestaña nueva usando visor nativo
-                            window.open(fileContent, '_blank');
-                        }
-                    };
-                    tdDoc.appendChild(a);
-                }
-                else {
-                    tdDoc.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin adjunto</span>';
-                }
-                tr.appendChild(tdDoc);
-                // Acciones (Eliminar)
-                if (session.capabilities.canEditData) {
-                    const tdActions = document.createElement("td");
-                    const btnDel = document.createElement("button");
-                    btnDel.className = "btn-secondary";
-                    btnDel.style.color = "var(--accent-red)";
-                    btnDel.style.borderColor = "rgba(239, 68, 68, 0.2)";
-                    btnDel.style.padding = "6px 12px";
-                    btnDel.style.fontSize = "12px";
-                    btnDel.textContent = "Eliminar";
-                    btnDel.addEventListener("click", async () => {
-                        if (confirm(`¿Estás seguro de eliminar la factura ${inv.invoice_number}?`)) {
-                            try {
-                                await financeService.deleteInvoice(inv.id);
-                                showToast("Factura eliminada correctamente", "success");
-                                alertContainerGen.innerHTML = '<div class="alert alert-success">✅ Factura eliminada correctamente.</div>';
-                                loadInvoicesList();
-                            }
-                            catch (err) {
-                                console.error(err);
-                                showToast("Error al eliminar la factura: " + (err.message || err), "error");
-                                alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al eliminar: ${err.message || err}</div>`;
-                            }
-                        }
-                    });
-                    tdActions.appendChild(btnDel);
-                    tr.appendChild(tdActions);
-                }
-                invoicesTableBody.appendChild(tr);
-            });
+            rawInvoices = await financeService.listInvoicesWithCalculations();
+            renderInvoicesTable();
         }
         catch (err) {
             console.error(err);
@@ -407,6 +541,56 @@ document.addEventListener("DOMContentLoaded", async () => {
             alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al guardar la factura: ${err.message || err}</div>`;
         }
     });
+    // RENDERIZADO Y FILTRADO DE TABLA POR BICICLETA
+    function renderBikeInvoicesTable() {
+        bikeInvoicesTableBody.innerHTML = "";
+        const searchLow = filterBikeSearch.toLowerCase();
+        let filtered = rawBikeInvoices.filter(inv => {
+            return !searchLow ||
+                (inv.invoice_number || "").toLowerCase().includes(searchLow) ||
+                (inv.provider || "").toLowerCase().includes(searchLow);
+        });
+        filtered = sortInvoicesArray(filtered, bikeSortKey, bikeSortOrder);
+        updateSortHeaderIcons("bike-invoices-table", bikeSortKey, bikeSortOrder);
+        if (filtered.length === 0) {
+            bikeInvoicesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No hay facturas que coincidan con la búsqueda.</td></tr>';
+            return;
+        }
+        filtered.forEach((inv) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+        <td><strong>${inv.invoice_number}</strong></td>
+        <td>${inv.provider}</td>
+        <td>${Number(inv.amount).toFixed(2)} €</td>
+        <td><span class="badge badge-primary">${Number(inv.allocatedAmount).toFixed(2)} €</span></td>
+        <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
+        <td>${Number(inv.km).toFixed(1)} km</td>
+        <td>${inv.costPerKm !== null ? `<strong>${Number(inv.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km en periodo</span>'}</td>
+      `;
+            bikeInvoicesTableBody.appendChild(tr);
+        });
+    }
+    if (filterBikeInvSearchInput) {
+        filterBikeInvSearchInput.addEventListener("input", () => {
+            filterBikeSearch = filterBikeInvSearchInput.value.trim();
+            renderBikeInvoicesTable();
+        });
+    }
+    document.querySelectorAll("#bike-invoices-table th.sortable").forEach((th) => {
+        th.addEventListener("click", () => {
+            const key = th.getAttribute("data-sort");
+            if (!key)
+                return;
+            if (bikeSortKey === key) {
+                bikeSortOrder = bikeSortOrder === "asc" ? "desc" : "asc";
+            }
+            else {
+                bikeSortKey = key;
+                bikeSortOrder = "asc";
+            }
+            renderBikeInvoicesTable();
+        });
+    });
     // 5. ANÁLISIS POR BICICLETA
     selectAnalysisBike.addEventListener("change", async () => {
         alertContainerBike.innerHTML = "";
@@ -430,31 +614,67 @@ document.addEventListener("DOMContentLoaded", async () => {
             else {
                 kpiAvgCostKm.textContent = "—";
             }
-            // Detalle de la tabla
-            bikeInvoicesTableBody.innerHTML = "";
-            if (summary.invoices.length === 0) {
-                bikeInvoicesTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No hay facturas asignadas a esta bicicleta.</td></tr>';
-                return;
-            }
-            summary.invoices.forEach((inv) => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-          <td><strong>${inv.invoice_number}</strong></td>
-          <td>${inv.provider}</td>
-          <td>${Number(inv.amount).toFixed(2)} €</td>
-          <td><span class="badge badge-primary">${Number(inv.allocatedAmount).toFixed(2)} €</span></td>
-          <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
-          <td>${Number(inv.km).toFixed(1)} km</td>
-          <td>${inv.costPerKm !== null ? `<strong>${Number(inv.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km en periodo</span>'}</td>
-        `;
-                bikeInvoicesTableBody.appendChild(tr);
-            });
+            rawBikeInvoices = summary.invoices || [];
+            renderBikeInvoicesTable();
         }
         catch (err) {
             console.error(err);
             alertContainerBike.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${err.message || err}</div>`;
             bikeInvoicesTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-red);">Error: ${err.message || err}</td></tr>`;
         }
+    });
+    // RENDERIZADO Y FILTRADO DE TABLA POR FIELD TEST
+    function renderFtInvoicesTable() {
+        ftInvoicesTableBody.innerHTML = "";
+        const searchLow = filterFtSearch.toLowerCase();
+        let filtered = rawFtInvoices.filter(inv => {
+            return !searchLow ||
+                (inv.invoice_number || "").toLowerCase().includes(searchLow) ||
+                (inv.provider || "").toLowerCase().includes(searchLow);
+        });
+        filtered = sortInvoicesArray(filtered, ftSortKey, ftSortOrder);
+        updateSortHeaderIcons("ft-invoices-table", ftSortKey, ftSortOrder);
+        if (filtered.length === 0) {
+            ftInvoicesTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No hay facturas que coincidan con la búsqueda.</td></tr>';
+            return;
+        }
+        filtered.forEach((inv) => {
+            const tr = document.createElement("tr");
+            const breakdownText = (inv.bikesCalculated || []).map((b) => {
+                const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km</span>';
+                return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
+            }).join("");
+            tr.innerHTML = `
+        <td><strong>${inv.invoice_number}</strong></td>
+        <td>${inv.provider}</td>
+        <td>${Number(inv.amount).toFixed(2)} €</td>
+        <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
+        <td>${breakdownText || '<span style="color: var(--text-secondary); font-style: italic;">Sin desglose</span>'}</td>
+        <td><strong>${Number(inv.km).toFixed(1)} km</strong></td>
+      `;
+            ftInvoicesTableBody.appendChild(tr);
+        });
+    }
+    if (filterFtInvSearchInput) {
+        filterFtInvSearchInput.addEventListener("input", () => {
+            filterFtSearch = filterFtInvSearchInput.value.trim();
+            renderFtInvoicesTable();
+        });
+    }
+    document.querySelectorAll("#ft-invoices-table th.sortable").forEach((th) => {
+        th.addEventListener("click", () => {
+            const key = th.getAttribute("data-sort");
+            if (!key)
+                return;
+            if (ftSortKey === key) {
+                ftSortOrder = ftSortOrder === "asc" ? "desc" : "asc";
+            }
+            else {
+                ftSortKey = key;
+                ftSortOrder = "asc";
+            }
+            renderFtInvoicesTable();
+        });
     });
     // 6. ANÁLISIS POR FIELD TEST
     selectAnalysisFt.addEventListener("change", async () => {
@@ -477,28 +697,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             else {
                 kpiFtAvgCostKm.textContent = "—";
             }
-            // Detalle de la tabla
-            ftInvoicesTableBody.innerHTML = "";
-            if (summary.invoices.length === 0) {
-                ftInvoicesTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No hay facturas asignadas a este Field Test.</td></tr>';
-                return;
-            }
-            summary.invoices.forEach((inv) => {
-                const tr = document.createElement("tr");
-                const breakdownText = (inv.bikesCalculated || []).map((b) => {
-                    const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km</span>';
-                    return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
-                }).join("");
-                tr.innerHTML = `
-          <td><strong>${inv.invoice_number}</strong></td>
-          <td>${inv.provider}</td>
-          <td>${Number(inv.amount).toFixed(2)} €</td>
-          <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
-          <td>${breakdownText || '<span style="color: var(--text-secondary); font-style: italic;">Sin desglose</span>'}</td>
-          <td><strong>${Number(inv.km).toFixed(1)} km</strong></td>
-        `;
-                ftInvoicesTableBody.appendChild(tr);
-            });
+            rawFtInvoices = summary.invoices || [];
+            renderFtInvoicesTable();
         }
         catch (err) {
             console.error(err);

@@ -1,5 +1,6 @@
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+import { calculateProportionalInvoiceAllocation } from "../utils/financeCalculations.js";
 export class FinanceService {
     correctDistance(dist) {
         if (dist >= 100) {
@@ -129,22 +130,15 @@ export class FinanceService {
     async getInvoiceDetails(invoice) {
         const amount = Number(invoice.amount || 0);
         const bikes = (invoice.invoice_bikes || []).map((ib) => ib.bikes).filter(Boolean);
-        const N = bikes.length;
-        const allocatedAmount = N > 0 ? amount / N : amount;
-        const bikesCalculated = await Promise.all(bikes.map(async (bike) => {
+        const bikesKmData = await Promise.all(bikes.map(async (bike) => {
             const km = await this.getBikeKmInPeriod(bike.bikecode, invoice.start_date, invoice.end_date);
-            const costPerKm = km > 0 ? allocatedAmount / km : null;
-            return {
-                id: bike.id,
-                bikecode: bike.bikecode,
-                km,
-                allocatedAmount,
-                costPerKm
-            };
+            return { id: bike.id, bikecode: bike.bikecode, km };
         }));
+        const calcResult = calculateProportionalInvoiceAllocation(amount, bikesKmData);
         return {
             ...invoice,
-            bikesCalculated
+            totalInvoiceKm: calcResult.totalInvoiceKm,
+            bikesCalculated: calcResult.bikesCalculated
         };
     }
     async listInvoicesWithCalculations() {
@@ -157,7 +151,18 @@ export class FinanceService {
             .select(`
         invoice_id,
         invoices (
-          *
+          *,
+          field_test (
+            id,
+            name
+          ),
+          invoice_bikes (
+            bike_id,
+            bikes (
+              id,
+              bikecode
+            )
+          )
         )
       `)
             .eq("bike_id", bikeId);
@@ -177,17 +182,11 @@ export class FinanceService {
         let totalAllocatedAmount = 0;
         let totalKm = 0;
         const invoiceDetails = await Promise.all(invoices.map(async (inv) => {
-            const { count, error: countError } = await supabase
-                .from("invoice_bikes")
-                .select("bike_id", { count: "exact", head: true })
-                .eq("invoice_id", inv.id);
-            if (countError)
-                throw countError;
-            const N = count || 1;
-            const amount = Number(inv.amount || 0);
-            const allocatedAmount = amount / N;
-            const km = await this.getBikeKmInPeriod(bikeCode, inv.start_date, inv.end_date);
-            const costPerKm = km > 0 ? allocatedAmount / km : null;
+            const details = await this.getInvoiceDetails(inv);
+            const bikeDetail = (details.bikesCalculated || []).find((b) => b.id === bikeId || b.bikecode === bikeCode);
+            const allocatedAmount = bikeDetail ? bikeDetail.allocatedAmount : 0;
+            const km = bikeDetail ? bikeDetail.km : 0;
+            const costPerKm = bikeDetail ? bikeDetail.costPerKm : null;
             totalAllocatedAmount += allocatedAmount;
             totalKm += km;
             return {

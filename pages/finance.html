@@ -297,6 +297,43 @@
       border-bottom: 1px solid var(--border-color);
     }
 
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: var(--transition-all);
+    }
+
+    th.sortable:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    th.sortable .sort-icon {
+      font-size: 11px;
+      margin-left: 4px;
+      opacity: 0.5;
+    }
+
+    th.sortable.active .sort-icon {
+      opacity: 1;
+      color: var(--accent-cyan);
+    }
+
+    .table-filter-bar {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .table-filter-bar input, .table-filter-bar select {
+      max-width: 280px;
+      font-size: 13px;
+      padding: 8px 12px;
+    }
+
+
     td {
       padding: 14px 16px;
       font-size: 14px;
@@ -515,16 +552,22 @@
           <h3>Historial de Facturas</h3>
           <button id="btn-show-register-invoice" class="btn-submit" style="width: auto; padding: 8px 16px; font-size: 13px; display: none;">Registrar Factura</button>
         </div>
+        <div class="table-filter-bar">
+          <input type="text" id="filter-inv-search" placeholder="🔍 Buscar por Factura o Proveedor..." />
+          <select id="filter-inv-ft">
+            <option value="">Todos los Field Tests</option>
+          </select>
+        </div>
         <div style="overflow-x: auto;">
           <table id="invoices-table">
             <thead>
               <tr>
-                <th>Factura</th>
-                <th>Field Test</th>
-                <th>Proveedor</th>
-                <th>Importe</th>
-                <th>Periodo</th>
-                <th>Asignación / Costo por Km</th>
+                <th class="sortable" data-sort="number">Factura <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="field_test">Field Test <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="provider">Proveedor <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="amount">Importe <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="period">Periodo <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="km">Asignación / Costo por Km <span class="sort-icon">⇅</span></th>
                 <th>Documento</th>
                 <th class="admin-action-header">Acciones</th>
               </tr>
@@ -576,17 +619,20 @@
         <div class="panel-header">
           <h3>Historial Económico Detallado</h3>
         </div>
+        <div class="table-filter-bar">
+          <input type="text" id="filter-bike-inv-search" placeholder="🔍 Buscar por Factura o Proveedor..." />
+        </div>
         <div style="overflow-x: auto;">
           <table id="bike-invoices-table">
             <thead>
               <tr>
-                <th>Factura</th>
-                <th>Proveedor</th>
-                <th>Importe Factura</th>
-                <th>Parte Asignada</th>
-                <th>Periodo de la Factura</th>
-                <th>Km en Periodo</th>
-                <th>Costo / Km</th>
+                <th class="sortable" data-sort="number">Factura <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="provider">Proveedor <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="amount">Importe Factura <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="allocatedAmount">Parte Asignada <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="period">Periodo de la Factura <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="km">Km en Periodo <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="costPerKm">Costo / Km <span class="sort-icon">⇅</span></th>
               </tr>
             </thead>
             <tbody>
@@ -636,16 +682,19 @@
         <div class="panel-header">
           <h3>Historial Económico del Field Test</h3>
         </div>
+        <div class="table-filter-bar">
+          <input type="text" id="filter-ft-inv-search" placeholder="🔍 Buscar por Factura o Proveedor..." />
+        </div>
         <div style="overflow-x: auto;">
           <table id="ft-invoices-table">
             <thead>
               <tr>
-                <th>Factura</th>
-                <th>Proveedor</th>
-                <th>Importe</th>
-                <th>Periodo de la Factura</th>
+                <th class="sortable" data-sort="number">Factura <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="provider">Proveedor <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="amount">Importe <span class="sort-icon">⇅</span></th>
+                <th class="sortable" data-sort="period">Periodo de la Factura <span class="sort-icon">⇅</span></th>
                 <th>Desglose de Bicicletas / Km / Costo</th>
-                <th>Km Totales</th>
+                <th class="sortable" data-sort="km">Km Totales <span class="sort-icon">⇅</span></th>
               </tr>
             </thead>
             <tbody>
