@@ -139,7 +139,11 @@ export class RideLogService {
       .order("sort_order", { ascending: true });
 
     if (fieldTestId) {
-      query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${fieldTestId}}`);
+      const trimmedId = fieldTestId.trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedId)) {
+        throw new Error("Invalid fieldTestId format");
+      }
+      query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${trimmedId}}`);
     } else {
       query = query.is("field_test_ids", null);
     }

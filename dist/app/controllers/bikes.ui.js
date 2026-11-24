@@ -1,3 +1,4 @@
+import { escapeHtml } from "../utils/sanitize.js";
 /* ======================================================
  * LISTADO DE BICIS
  * ====================================================== */
@@ -13,12 +14,12 @@ export function renderBikeList(bikes, container, onSelect, selectedId) {
         }
         card.innerHTML = `
       <div class="bike-item-header">
-        <span class="bike-item-code">${b.bikecode}</span>
-        <span class="bike-item-badge ${b.location ? 'has-loc' : 'no-loc'}">${b.location || "Sin loc."}</span>
+        <span class="bike-item-code">${escapeHtml(b.bikecode)}</span>
+        <span class="bike-item-badge ${b.location ? 'has-loc' : 'no-loc'}">${escapeHtml(b.location || "Sin loc.")}</span>
       </div>
       <div class="bike-item-details">
-        <span>Motor: <strong>${b.motortype || "—"}</strong></span>
-        <span>Scope: <strong>${b.scope || "—"}</strong></span>
+        <span>Motor: <strong>${escapeHtml(b.motortype || "—")}</strong></span>
+        <span>Scope: <strong>${escapeHtml(b.scope || "—")}</strong></span>
       </div>
     `;
         card.onclick = () => onSelect(b);
@@ -51,8 +52,8 @@ export function renderBikeDetail(bike, container, actions, canEdit = true) {
         const card = document.createElement("div");
         card.className = "meta-card";
         card.innerHTML = `
-      <div class="meta-card-label">${label}</div>
-      <div class="meta-card-value">${val && val.trim() !== "" ? val : "—"}</div>
+      <div class="meta-card-label">${escapeHtml(label)}</div>
+      <div class="meta-card-value">${val && val.trim() !== "" ? escapeHtml(val) : "—"}</div>
     `;
         grid.appendChild(card);
     };

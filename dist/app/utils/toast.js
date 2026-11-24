@@ -101,9 +101,13 @@ export function showToast(message, type = 'success') {
     }
     toast.innerHTML = `
     <div class="toast-icon">${iconHtml}</div>
-    <div class="toast-content">${message}</div>
+    <div class="toast-content"></div>
   `;
     // Click to dismiss
+    const toastContentEl = toast.querySelector('.toast-content');
+    if (toastContentEl) {
+        toastContentEl.textContent = message;
+    }
     toast.addEventListener('click', () => {
         dismissToast(toast);
     });

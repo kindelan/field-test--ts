@@ -25,14 +25,19 @@ export class AuthService {
     // 1. Check if user is admin
     let isAdmin = false;
     try {
-      const { data, error: queryErr } = await supabase
-        .from("app_admins")
-        .select("email")
-        .ilike("email", email.trim().toLowerCase())
-        .maybeSingle();
+      const { data: rpcResult, error: rpcErr } = await supabase.rpc("is_admin");
+      if (!rpcErr && typeof rpcResult === "boolean") {
+        isAdmin = rpcResult;
+      } else {
+        const { data, error: queryErr } = await supabase
+          .from("app_admins")
+          .select("email")
+          .eq("email", email.trim().toLowerCase())
+          .maybeSingle();
 
-      if (!queryErr && data) {
-        isAdmin = true;
+        if (!queryErr && data) {
+          isAdmin = true;
+        }
       }
     } catch (err) {
       console.error("Error checking admin status:", err);

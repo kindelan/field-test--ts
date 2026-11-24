@@ -21,7 +21,7 @@ export function renderErrorsPopup(popup, name, errors) {
   <meta charset="UTF-8" />
   <title>Reporte de Errores - ${name}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-main: #0b0f19;
@@ -427,7 +427,7 @@ export async function renderBikePopup(popup, bikecode, data, fieldTestId) {
   <meta charset="UTF-8" />
   <title>Detalle Bici - ${bikecode}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-main: #0b0f19;

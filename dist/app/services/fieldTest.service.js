@@ -1,5 +1,6 @@
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
+import { correctDistance } from "../utils/distance.js";
 /* ========= SERVICE ========= */
 export class FieldTestService {
     /* ---------- FIELD TESTS ---------- */
@@ -137,14 +138,31 @@ export class FieldTestService {
         const dateStr = r.ride_date || r.completion_date || r.ride_date_txt || r.completion_date_txt;
         return dateStr ? new Date(dateStr) : null;
     }
-    correctDistance(dist) {
-        if (dist >= 100) {
-            const numDigits = String(Math.floor(dist)).length;
-            if (numDigits > 2) {
-                return dist / Math.pow(10, numDigits - 2);
+    async fetchFieldTestAssignments(fieldTestId) {
+        const { data, error } = await supabase
+            .from("bike_field_test")
+            .select("*, bikes(*)")
+            .eq("field_test_id", fieldTestId);
+        if (error)
+            throw error;
+        return data ?? [];
+    }
+    filterRidesForBike(rides, bikeCodeNorm, start, end) {
+        const targetLower = bikeCodeNorm.toLowerCase();
+        return rides.filter((r) => {
+            const rNorm = normalizeBikeCode(r.bike_code);
+            if (!rNorm || rNorm.toLowerCase() !== targetLower) {
+                return false;
             }
-        }
-        return dist;
+            const rDate = this.getRideDate(r);
+            if (!rDate)
+                return false;
+            if (start && rDate < start)
+                return false;
+            if (end && rDate > end)
+                return false;
+            return true;
+        });
     }
     getMondayOfWeek(d) {
         const day = d.getDay();
@@ -160,13 +178,8 @@ export class FieldTestService {
         return summary.totalKm;
     }
     async getAssignedBikesKmSummary(fieldTestId) {
-        const { data: assignments, error: assignErr } = await supabase
-            .from("bike_field_test")
-            .select("*, bikes(*)")
-            .eq("field_test_id", fieldTestId);
-        if (assignErr)
-            throw assignErr;
-        if (!assignments || assignments.length === 0) {
+        const assignments = await this.fetchFieldTestAssignments(fieldTestId);
+        if (assignments.length === 0) {
             return { totalKm: 0, rows: [] };
         }
         const rides = await this.fetchAllRides();
@@ -180,17 +193,8 @@ export class FieldTestService {
                 return;
             const start = new Date(a.start_at);
             const end = a.end_at ? new Date(a.end_at) : null;
-            const matchingRides = rides.filter((r) => {
-                const rNorm = normalizeBikeCode(r.bike_code);
-                if (!rNorm || rNorm.toLowerCase() !== bikeCodeNorm.toLowerCase()) {
-                    return false;
-                }
-                const rDate = this.getRideDate(r);
-                if (!rDate)
-                    return false;
-                return rDate >= start && (!end || rDate <= end);
-            });
-            const assignmentSum = matchingRides.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+            const matchingRides = this.filterRidesForBike(rides, bikeCodeNorm, start, end);
+            const assignmentSum = matchingRides.reduce((sum, r) => sum + correctDistance(Number(r.distance_km || 0)), 0);
             const assignmentElevationSum = matchingRides.reduce((sum, r) => sum + Number(r.elevation_m || 0), 0);
             const key = bikeCodeNorm;
             const existing = bikeSums.get(key) || { km: 0, elevation: 0 };
@@ -208,13 +212,8 @@ export class FieldTestService {
         return { totalKm, rows };
     }
     async getFieldTestWeeklyKmByMotor(fieldTestId) {
-        const { data: assignments, error: assignErr } = await supabase
-            .from("bike_field_test")
-            .select("*, bikes(*)")
-            .eq("field_test_id", fieldTestId);
-        if (assignErr)
-            throw assignErr;
-        if (!assignments || assignments.length === 0) {
+        const assignments = await this.fetchFieldTestAssignments(fieldTestId);
+        if (assignments.length === 0) {
             return [];
         }
         const bikeIds = assignments.map((a) => a.bikes?.id).filter(Boolean);
@@ -237,16 +236,7 @@ export class FieldTestService {
                 return;
             const start = new Date(a.start_at);
             const end = a.end_at ? new Date(a.end_at) : null;
-            const matchingRides = rides.filter((r) => {
-                const rNorm = normalizeBikeCode(r.bike_code);
-                if (!rNorm || rNorm.toLowerCase() !== bikeCodeNorm.toLowerCase()) {
-                    return false;
-                }
-                const rDate = this.getRideDate(r);
-                if (!rDate)
-                    return false;
-                return rDate >= start && (!end || rDate <= end);
-            });
+            const matchingRides = this.filterRidesForBike(rides, bikeCodeNorm, start, end);
             const bikeHist = historyList.filter((h) => h.bike_id === bike.id);
             matchingRides.forEach((r) => {
                 const rDate = this.getRideDate(r);
@@ -269,7 +259,7 @@ export class FieldTestService {
                     return rDate >= s && (!e || rDate <= e);
                 });
                 const batterySerial = activeBatteryHist ? activeBatteryHist.component_serial_code : (bike.batterycode || "—");
-                const dist = this.correctDistance(Number(r.distance_km || 0));
+                const dist = correctDistance(Number(r.distance_km || 0));
                 const elev = Number(r.elevation_m || 0);
                 const key = `${bikeCodeNorm.toLowerCase()}|${motorSerial.toLowerCase()}|${batterySerial.toLowerCase()}|${weekStr}`;
                 const existing = grouped.get(key);
@@ -478,7 +468,7 @@ export class FieldTestService {
             }
             return true;
         });
-        return matchingRides.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+        return matchingRides.reduce((sum, r) => sum + correctDistance(Number(r.distance_km || 0)), 0);
     }
     async calculateBikeKmUpToDate(bikeCode, dateStr) {
         const targetDate = new Date(dateStr);
@@ -486,15 +476,8 @@ export class FieldTestService {
         if (!bikeCodeNorm)
             return 0;
         const rides = await this.fetchAllRides();
-        const matchingRides = rides.filter((r) => {
-            const rNorm = normalizeBikeCode(r.bike_code);
-            if (!rNorm || rNorm.toLowerCase() !== bikeCodeNorm.toLowerCase()) {
-                return false;
-            }
-            const rDate = this.getRideDate(r);
-            return rDate && rDate <= targetDate;
-        });
-        return matchingRides.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+        const matchingRides = this.filterRidesForBike(rides, bikeCodeNorm, null, targetDate);
+        return matchingRides.reduce((sum, r) => sum + correctDistance(Number(r.distance_km || 0)), 0);
     }
     async addBikeError(fieldTestId, bikeId, errorTagId, errorDate, desc) {
         // 1. Fetch the bike code

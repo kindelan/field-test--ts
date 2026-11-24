@@ -1,5 +1,6 @@
 import { requireAuth } from "../utils/authGuard.js";
 import { showToast } from "../utils/toast.js";
+import { escapeHtml, isSafeHttpUrl, dataUriToBlobUrl } from "../utils/sanitize.js";
 import { FinanceService } from "../services/finance.service.js";
 import { BikesService } from "../services/bikes.service.js";
 import { FieldTestService } from "../services/fieldTest.service.js";
@@ -373,13 +374,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Factura
       const tdNumber = document.createElement("td");
-      tdNumber.innerHTML = `<strong>${inv.invoice_number}</strong>`;
+      tdNumber.innerHTML = `<strong>${escapeHtml(inv.invoice_number)}</strong>`;
       tr.appendChild(tdNumber);
 
       // Field Test
       const tdFieldTest = document.createElement("td");
       if (inv.field_test) {
-        tdFieldTest.innerHTML = `<span class="badge badge-secondary">${inv.field_test.name}</span>`;
+        tdFieldTest.innerHTML = `<span class="badge badge-secondary">${escapeHtml(inv.field_test.name)}</span>`;
       } else {
         tdFieldTest.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">Sin test</span>';
       }
@@ -409,7 +410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         tdAlloc.innerHTML = inv.bikesCalculated.map((b: any) => {
           const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km en periodo</span>';
-          return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
+          return `<div style="margin-bottom: 4px;">• <strong>${escapeHtml(b.bikecode)}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
         }).join("");
       }
       tr.appendChild(tdAlloc);
@@ -420,29 +421,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         const a = document.createElement("a");
         a.className = "doc-link";
         a.textContent = "📄 Ver Factura";
-        a.onclick = () => {
-          const fileContent = inv.file_url;
-          if (fileContent.startsWith("data:")) {
-            const win = window.open();
-            if (win) {
-              const title = inv.file_name || "Documento";
-              win.document.write(`
-                <html>
-                  <head>
-                    <title>${title}</title>
-                    <style>body { margin: 0; background: #0b0f19; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style>
-                  </head>
-                  <body>
-                    ${fileContent.startsWith("data:application/pdf")
-                      ? `<embed src="${fileContent}" type="application/pdf" width="100%" height="100%"/>`
-                      : `<img src="${fileContent}" style="max-width:100%; max-height:100%; object-fit:contain;"/>`}
-                  </body>
-                </html>
-              `);
-              win.document.close();
+        a.onclick = async () => {
+          try {
+            const resolvedUrl = await financeService.getInvoiceSignedUrl(inv.file_url);
+            if (resolvedUrl.startsWith("data:")) {
+              const blobUrl = dataUriToBlobUrl(resolvedUrl);
+              if (!blobUrl) {
+                showToast("Tipo de archivo adjunto no permitido", "error");
+                return;
+              }
+              window.open(blobUrl, "_blank", "noopener,noreferrer");
+            } else if (isSafeHttpUrl(resolvedUrl)) {
+              window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+            } else {
+              showToast("URL de factura no válida", "error");
             }
-          } else {
-            window.open(fileContent, '_blank');
+          } catch (err: any) {
+            console.error("Error opening invoice:", err);
+            showToast("No se pudo abrir la factura: " + (err?.message || err), "error");
           }
         };
         tdDoc.appendChild(a);
@@ -472,7 +468,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } catch (err: any) {
               console.error(err);
               showToast("Error al eliminar la factura: " + (err.message || err), "error");
-              alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al eliminar: ${err.message || err}</div>`;
+              alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al eliminar: ${escapeHtml(err.message || err)}</div>`;
             }
           }
         });
@@ -522,7 +518,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderInvoicesTable();
     } catch (err: any) {
       console.error(err);
-      invoicesTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--accent-red);">Error cargando facturas: ${err.message || err}</td></tr>`;
+      invoicesTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--accent-red);">Error cargando facturas: ${escapeHtml(err.message || err)}</td></tr>`;
     }
   }
 
@@ -581,7 +577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadInvoicesList();
     } catch (err: any) {
       console.error(err);
-      alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al guardar la factura: ${err.message || err}</div>`;
+      alertContainerGen.innerHTML = `<div class="alert alert-error">❌ Error al guardar la factura: ${escapeHtml(err.message || err)}</div>`;
     }
   });
 
@@ -608,8 +604,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const tr = document.createElement("tr");
 
       tr.innerHTML = `
-        <td><strong>${inv.invoice_number}</strong></td>
-        <td>${inv.provider}</td>
+        <td><strong>${escapeHtml(inv.invoice_number)}</strong></td>
+        <td>${escapeHtml(inv.provider)}</td>
         <td>${Number(inv.amount).toFixed(2)} €</td>
         <td><span class="badge badge-primary">${Number(inv.allocatedAmount).toFixed(2)} €</span></td>
         <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
@@ -674,8 +670,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderBikeInvoicesTable();
     } catch (err: any) {
       console.error(err);
-      alertContainerBike.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${err.message || err}</div>`;
-      bikeInvoicesTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-red);">Error: ${err.message || err}</td></tr>`;
+      alertContainerBike.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${escapeHtml(err.message || err)}</div>`;
+      bikeInvoicesTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-red);">Error: ${escapeHtml(err.message || err)}</td></tr>`;
     }
   });
 
@@ -703,12 +699,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const breakdownText = (inv.bikesCalculated || []).map((b: any) => {
         const costText = b.costPerKm !== null ? `<strong>${Number(b.costPerKm).toFixed(2)} €/km</strong>` : '<span style="color: var(--accent-red);">Sin km</span>';
-        return `<div style="margin-bottom: 4px;">• <strong>${b.bikecode}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
+        return `<div style="margin-bottom: 4px;">• <strong>${escapeHtml(b.bikecode)}</strong>: ${Number(b.allocatedAmount).toFixed(2)} € | ${Number(b.km).toFixed(1)} km | ${costText}</div>`;
       }).join("");
 
       tr.innerHTML = `
-        <td><strong>${inv.invoice_number}</strong></td>
-        <td>${inv.provider}</td>
+        <td><strong>${escapeHtml(inv.invoice_number)}</strong></td>
+        <td>${escapeHtml(inv.provider)}</td>
         <td>${Number(inv.amount).toFixed(2)} €</td>
         <td>${new Date(inv.start_date).toLocaleDateString()} - ${new Date(inv.end_date).toLocaleDateString()}</td>
         <td>${breakdownText || '<span style="color: var(--text-secondary); font-style: italic;">Sin desglose</span>'}</td>
@@ -770,8 +766,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderFtInvoicesTable();
     } catch (err: any) {
       console.error(err);
-      alertContainerFt.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${err.message || err}</div>`;
-      ftInvoicesTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--accent-red);">Error: ${err.message || err}</td></tr>`;
+      alertContainerFt.innerHTML = `<div class="alert alert-error">❌ Error al generar análisis: ${escapeHtml(err.message || err)}</div>`;
+      ftInvoicesTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--accent-red);">Error: ${escapeHtml(err.message || err)}</td></tr>`;
     }
   });
 

@@ -1,17 +1,8 @@
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 import { calculateProportionalInvoiceAllocation } from "../utils/financeCalculations.js";
+import { correctDistance } from "../utils/distance.js";
 export class FinanceService {
-    correctDistance(dist) {
-        if (dist >= 100) {
-            const numDigits = String(Math.floor(dist)).length;
-            if (numDigits > 2) {
-                return dist / 100;
-            }
-            return dist / 10;
-        }
-        return dist;
-    }
     async getBikeKmInPeriod(bikeCode, startDate, endDate) {
         const bikeCodeNorm = normalizeBikeCode(bikeCode);
         if (!bikeCodeNorm)
@@ -35,7 +26,7 @@ export class FinanceService {
             const rDate = new Date(dateStr);
             return rDate >= start && rDate <= end;
         });
-        return filtered.reduce((sum, r) => sum + this.correctDistance(Number(r.distance_km || 0)), 0);
+        return filtered.reduce((sum, r) => sum + correctDistance(Number(r.distance_km || 0)), 0);
     }
     async listInvoices() {
         const { data, error } = await supabase
@@ -59,20 +50,43 @@ export class FinanceService {
             throw error;
         return data || [];
     }
+    /**
+     * Generates a short-lived signed URL for an invoice stored in the private `invoices` bucket.
+     * Supports both plain object paths (e.g. `171234_abc.pdf`) and legacy public Supabase Storage URLs.
+     */
+    async getInvoiceSignedUrl(fileUrlOrPath, expiresInSeconds = 300) {
+        if (!fileUrlOrPath)
+            throw new Error("Empty invoice path");
+        if (fileUrlOrPath.startsWith("data:"))
+            return fileUrlOrPath;
+        let objectPath = fileUrlOrPath;
+        const publicPrefixMatch = fileUrlOrPath.match(/\/storage\/v1\/object\/(?:public|sign)\/invoices\/([^?]+)/);
+        if (publicPrefixMatch) {
+            objectPath = decodeURIComponent(publicPrefixMatch[1]);
+        }
+        else if (/^https?:\/\//i.test(fileUrlOrPath)) {
+            return fileUrlOrPath;
+        }
+        const { data, error } = await supabase.storage
+            .from("invoices")
+            .createSignedUrl(objectPath, expiresInSeconds);
+        if (error || !data?.signedUrl) {
+            throw error || new Error("Could not create signed URL for invoice");
+        }
+        return data.signedUrl;
+    }
     async createInvoice(invoice, bikeIds, file) {
         let fileUrl = null;
         if (file) {
             const fileExt = file.name.split('.').pop();
             const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from("invoices")
                 .upload(uniqueFileName, file);
             if (uploadError)
                 throw uploadError;
-            const { data: urlData } = supabase.storage
-                .from("invoices")
-                .getPublicUrl(uniqueFileName);
-            fileUrl = urlData.publicUrl;
+            // Store object path only; signed URLs are generated on demand via getInvoiceSignedUrl()
+            fileUrl = uniqueFileName;
         }
         const invoiceData = {
             ...invoice,

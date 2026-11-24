@@ -7,7 +7,29 @@ const supabase = createClient(
   Deno.env.get("SERVICE_ROLE_KEY")!
 );
 
-const corsHeaders = {
+const ALLOWED_ORIGINS = (
+  Deno.env.get("ALLOWED_ORIGINS") ||
+  "https://fieldtest.mysmartbikes.com,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5500,http://127.0.0.1:5500"
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0] || "";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, apikey, content-type, x-client-info",
+    "Vary": "Origin",
+  };
+}
+
+const MAX_ROWS_PER_IMPORT = 5000;
+
+const _legacyCorsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   // ✅ CORREGIDO: authorization bien escrito
@@ -173,6 +195,7 @@ function normalizeBikeCode(raw: string | null): string | null {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   // ✅ CORS preflight CORRECTO
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -182,7 +205,46 @@ serve(async (req) => {
   }
 
   try {
+    // 1. Require authenticated user JWT
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    const userEmail = userData?.user?.email?.trim().toLowerCase();
+    if (authError || !userEmail) {
+      return new Response(JSON.stringify({ ok: false, error: "Invalid or expired token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Require admin privileges (app_admins)
+    const { data: adminRows, error: adminErr } = await supabase
+      .from("app_admins")
+      .select("email");
+    const isAdmin = !adminErr && (adminRows || []).some(
+      (row: any) => String(row.email || "").trim().toLowerCase() === userEmail
+    );
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden: admin privileges required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const rows = await req.json();
+    if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ROWS_PER_IMPORT) {
+      return new Response(
+        JSON.stringify({ ok: false, error: `Payload must be a non-empty array of at most ${MAX_ROWS_PER_IMPORT} rows` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { count: before } = await supabase
       .from("test_ride_log")

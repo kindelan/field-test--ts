@@ -4,6 +4,8 @@ declare const XLSX: any;
 import { supabase } from "../dao/supabaseclient.js";
 import { normalizeBikeCode } from "../utils/sanitizeBikeCode.js";
 import { requireAuth } from "../utils/authGuard.js";
+import { escapeHtml } from "../utils/sanitize.js";
+import { correctDistance } from "../utils/distance.js";
 
 /* ======================================================
    HELPERS
@@ -105,15 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   statusDiv.parentNode?.insertBefore(clearFilterBtn, statusDiv.nextSibling);
 
-  function correctDistance(dist: number): number {
-    if (dist >= 100) {
-      const numDigits = String(Math.floor(dist)).length;
-      if (numDigits > 2) {
-        return dist / Math.pow(10, numDigits - 2);
-      }
-    }
-    return dist;
-  }
 
   /* ====================================================== */
 
@@ -187,8 +180,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const tr = document.createElement("tr");
 
       tr.innerHTML = `
-        <td>${r.bike_code}</td>
-        <td>${r.motor_type}</td>
+        <td>${escapeHtml(r.bike_code)}</td>
+        <td>${escapeHtml(r.motor_type)}</td>
         <td style="text-align:right">
           ${Number(r.total_distance_km).toFixed(1)} km
         </td>

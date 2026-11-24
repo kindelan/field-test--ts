@@ -2,6 +2,7 @@ import { context, formatWeekYear, getColor, normalizeBikeCode } from "./ft.conte
 import { renderBikePopup, renderErrorsPopup, renderAddErrorPopup } from "./ft.errorLog.js";
 import { supabase } from "../../dao/supabaseclient.js";
 import { isRideInMotorPeriods, isErrorInMotorPeriods } from "../../utils/motorHistory.js";
+import { escapeHtml, safeJsonForScript } from "../../utils/sanitize.js";
 
 // ✅ 1. POPUPS HELPERS FOR KM SUMMARY
 function getFeelClass(feel: string): string {
@@ -42,9 +43,9 @@ export function renderFieldTestPopup(popup: Window, name: string, data: any[]) {
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>${name}</title>
+  <title>${escapeHtml(name)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-main: #0b0f19;
@@ -90,7 +91,7 @@ export function renderFieldTestPopup(popup: Window, name: string, data: any[]) {
 </head>
 <body>
   <div class="container">
-    <h2>${name}</h2>
+    <h2>${escapeHtml(name)}</h2>
     <div class="card">
       <canvas id="chart"></canvas>
     </div>
@@ -99,8 +100,8 @@ export function renderFieldTestPopup(popup: Window, name: string, data: any[]) {
     new Chart(document.getElementById("chart"), {
       type: "bar",
       data: {
-        labels: ${JSON.stringify(labels)},
-        datasets: ${JSON.stringify(dataset)}
+        labels: ${safeJsonForScript(labels)},
+        datasets: ${safeJsonForScript(dataset)}
       },
       options: {
         responsive: true,
@@ -138,7 +139,7 @@ export function simpleMotorPopup(popup: Window, data: any[]) {
   <meta charset="UTF-8" />
   <title>KM por Motor</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-main: #0b0f19;
@@ -237,7 +238,7 @@ export function simpleMotorPopup(popup: Window, data: any[]) {
         <tbody>
           ${totals.map(m => `
             <tr>
-              <td>${m.motor}</td>
+              <td>${escapeHtml(m.motor)}</td>
               <td>${m.km.toFixed(1)} km</td>
             </tr>
           `).join("")}
@@ -255,10 +256,10 @@ export function simpleMotorPopup(popup: Window, data: any[]) {
     new Chart(document.getElementById("chart"), {
       type: "bar",
       data: {
-        labels: ${JSON.stringify(totals.map(x => x.motor))},
+        labels: ${safeJsonForScript(totals.map(x => x.motor))},
         datasets: [{
           label: "KM",
-          data: ${JSON.stringify(totals.map(x => x.km))},
+          data: ${safeJsonForScript(totals.map(x => x.km))},
           backgroundColor: ${JSON.stringify(totals.map((_, i) => getColor(i)))}
         }]
       },
@@ -291,7 +292,7 @@ export function simpleBikePopup(popup: Window, rows: { bikecode: string; km: num
   <meta charset="UTF-8" />
   <title>KM por Bici</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-main: #0b0f19;
@@ -408,10 +409,10 @@ export function simpleBikePopup(popup: Window, rows: { bikecode: string; km: num
     new Chart(document.getElementById("chart"), {
       type: "bar",
       data: {
-        labels: ${JSON.stringify(sorted.map(x => x.bikecode))},
+        labels: ${safeJsonForScript(sorted.map(x => x.bikecode))},
         datasets: [{
           label: "KM",
-          data: ${JSON.stringify(sorted.map(x => x.km))},
+          data: ${safeJsonForScript(sorted.map(x => x.km))},
           backgroundColor: ${JSON.stringify(sorted.map((_, i) => getColor(i)))}
         }]
       },
@@ -449,7 +450,7 @@ function renderDynamicSection(section: string, title: string, questions: any[], 
   const radioItems = activeQuestions.filter(q => q.input_type === 'radio');
   const textItems = activeQuestions.filter(q => q.input_type !== 'radio');
 
-  let html = `<div class="feedback-section"><h4>${title}</h4>`;
+  let html = `<div class="feedback-section"><h4>${escapeHtml(title)}</h4>`;
 
   if (radioItems.length > 0) {
     html += `<div class="ratings-grid" style="margin-bottom: 15px;">`;
@@ -471,8 +472,8 @@ function renderDynamicSection(section: string, title: string, questions: any[], 
       
       html += `
         <div class="rating-item">
-          <span class="rating-label">${q.label}:</span>
-          <span class="badge ${badgeColor}">${displayVal}</span>
+          <span class="rating-label">${escapeHtml(q.label)}:</span>
+          <span class="badge ${badgeColor}">${escapeHtml(displayVal)}</span>
         </div>
       `;
     });
@@ -486,8 +487,8 @@ function renderDynamicSection(section: string, title: string, questions: any[], 
       const displayVal = val !== null && val !== undefined ? String(val) : '—';
       html += `
         <div class="info-block">
-          <strong>${q.label}:</strong>
-          <p>${displayVal !== '—' ? `"${displayVal}"` : displayVal}</p>
+          <strong>${escapeHtml(q.label)}:</strong>
+          <p>${displayVal !== '—' ? `"${escapeHtml(displayVal)}"` : displayVal}</p>
         </div>
       `;
     });
@@ -507,7 +508,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
           <line x1="12" y1="16" x2="12" y2="12"></line>
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
-        <p>No se han registrado valoraciones para la bicicleta <strong>${bikecode}</strong> en este Field Test.</p>
+        <p>No se han registrado valoraciones para la bicicleta <strong>${escapeHtml(bikecode)}</strong> en este Field Test.</p>
       </div>
     `
     : feedbacks.map((f: any) => {
@@ -519,7 +520,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
         const distStr = f.test_ride_log ? `${f.test_ride_log.distance_km} km` : '—';
         const elevStr = f.test_ride_log && f.test_ride_log.elevation_m != null ? `${f.test_ride_log.elevation_m} m` : '—';
         const motorStr = f.test_ride_log && f.test_ride_log.motor_type ? f.test_ride_log.motor_type : '—';
-        const riderEmail = f.rider_email ? `<span class="rider-email">&lt;${f.rider_email}&gt;</span>` : '';
+        const riderEmail = f.rider_email ? `<span class="rider-email">&lt;${escapeHtml(f.rider_email)}&gt;</span>` : '';
 
         // Red bell alert if motor error exists
         const motorErrorVal = f.answers?.motor_error ?? f.motor_error;
@@ -544,7 +545,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
         const errorContent = motorErrorVal === 'Yes'
           ? `
             <div class="error-alert">
-              <strong>⚠️ Motor Error Logged:</strong> ${errorDescVal || 'No description provided.'}
+              <strong>⚠️ Motor Error Logged:</strong> ${escapeHtml(errorDescVal || 'No description provided.')}
             </div>
           `
           : '';
@@ -553,7 +554,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
           <details class="review-card review-card-accordion" data-date="${isoDate}" data-has-error="${motorErrorVal === 'Yes' ? 'true' : 'false'}">
             <summary class="review-card-summary">
               <div class="header-main-left">
-                <span class="rider-name">👤 ${f.rider_name}</span>
+                <span class="rider-name">👤 ${escapeHtml(f.rider_name)}</span>
                 ${riderEmail}
                 ${errorAlertBell}
               </div>
@@ -561,7 +562,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
                 <span class="meta-pill">📅 ${dateStr}</span>
                 <span class="meta-pill">🚴 ${distStr}</span>
                 <span class="meta-pill">🏔️ ${elevStr}</span>
-                <span class="meta-pill text-cyan">⚙️ Motor: ${motorStr}</span>
+                <span class="meta-pill text-cyan">⚙️ Motor: ${escapeHtml(motorStr)}</span>
                 <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </div>
             </summary>
@@ -582,7 +583,7 @@ export function renderFeedbackPopup(popup: Window, bikecode: string, feedbacks: 
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Rider Feedback - ${bikecode}</title>
+  <title>Rider Feedback - ${escapeHtml(bikecode)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -1352,7 +1353,7 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
         const errorContent = motorErrorVal === 'Yes'
           ? `
             <div class="error-alert" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 15px;">
-              <strong>⚠️ Motor Error Logged:</strong> ${errorDescVal || 'No description provided.'}
+              <strong>⚠️ Motor Error Logged:</strong> ${escapeHtml(errorDescVal || 'No description provided.')}
             </div>
           `
           : '';
@@ -1390,7 +1391,7 @@ export async function renderMotorPopup(popup: Window, motorSerial: string, field
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Dossier del Motor - ${motorSerial}</title>
+  <title>Dossier del Motor - ${escapeHtml(motorSerial)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -1802,7 +1803,7 @@ export async function loadKmSummary() {
         renderErrorsPopup(popup, context.selectedFTName || "Field Test", errors);
       } catch (err) {
         console.error("Error loading field test errors popup:", err);
-        popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar errores: ${err}</p>`);
+        popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar errores: ${escapeHtml(err)}</p>`);
       }
     };
 
@@ -1831,7 +1832,7 @@ export async function loadKmSummary() {
           renderAddErrorPopup(popup, context.selectedFTName || "Field Test", tags, bikes);
         } catch (err) {
           console.error("Error opening add error popup:", err);
-          popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al abrir formulario: ${err}</p>`);
+          popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al abrir formulario: ${escapeHtml(err)}</p>`);
         }
       };
     };
@@ -1925,11 +1926,11 @@ export async function loadKmSummary() {
 
     const motorCode = bike?.motorcode ?? "—";
     const motorCellHtml = motorCode !== "—" 
-      ? `<span class="motor-link" style="color: var(--accent-cyan); cursor: pointer; text-decoration: underline; font-weight: 500;">${motorCode}</span>`
+      ? `<span class="motor-link" style="color: var(--accent-cyan); cursor: pointer; text-decoration: underline; font-weight: 500;">${escapeHtml(motorCode)}</span>`
       : "—";
 
     tr.innerHTML = `
-      <td>${bike?.bikecode ?? r.bikecode}</td>
+      <td>${escapeHtml(bike?.bikecode ?? r.bikecode)}</td>
       <td>${motorCellHtml}</td>
       <td>${r.km.toFixed(1)} km</td>
       <td>${r.elevation.toLocaleString()} m</td>
@@ -1951,7 +1952,7 @@ export async function loadKmSummary() {
             await renderMotorPopup(popup, motorCode, context.selectedFTId!);
           } catch (err) {
             console.error("Error loading motor dossier:", err);
-            popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar el historial: ${err}</p>`);
+            popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar el historial: ${escapeHtml(err)}</p>`);
           }
         })();
       };
@@ -1996,7 +1997,7 @@ export async function loadKmSummary() {
           renderFeedbackPopup(popup, bike?.bikecode ?? r.bikecode, feedbacks, questions || []);
         } catch (err) {
           console.error("Error loading feedback dossier:", err);
-          popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar feedback: ${err}</p>`);
+          popup.document.write(`<p style="color:red; font-family:sans-serif;">Error al cargar feedback: ${escapeHtml(err)}</p>`);
         }
       })();
     };

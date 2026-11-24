@@ -138,7 +138,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         query = query.is("field_test_ids", null);
       } else {
         // Fetch common (null) or specific test (array contains the test ID)
-        query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${filterVal}}`);
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filterVal.trim())) {
+          throw new Error("Invalid field test filter ID");
+        }
+        query = query.or(`field_test_ids.is.null,field_test_ids.cs.{${filterVal.trim()}}`);
       }
 
       const { data, error } = await query.order("sort_order", { ascending: true });

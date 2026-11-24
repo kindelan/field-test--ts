@@ -1,71 +1,129 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const HOST = '127.0.0.1';
 const PORT = 3000;
 
-http.createServer((req, res) => {
-  // Clean query parameters from URL
-  const cleanUrl = req.url.split('?')[0];
-  
-  let filePath = '.' + cleanUrl;
-  
-  // Routes mapping
-  if (cleanUrl === '/' || cleanUrl === '/index.html') {
-    filePath = './pages/index.html';
-  } else if (cleanUrl === '/bikes' || cleanUrl === '/bikes.html') {
-    filePath = './pages/bikes.html';
-  } else if (cleanUrl === '/ft' || cleanUrl === '/ft.html') {
-    filePath = './pages/ft.html';
-  } else if (cleanUrl === '/import' || cleanUrl === '/import.html') {
-    filePath = './pages/import.html';
-  } else if (cleanUrl === '/form' || cleanUrl === '/form.html') {
-    filePath = './pages/form.html';
-  } else if (cleanUrl === '/questions' || cleanUrl === '/questions.html') {
-    filePath = './pages/questions.html';
+const ALLOWED_ROOTS = [
+  path.resolve(__dirname, 'pages'),
+  path.resolve(__dirname, 'dist'),
+  path.resolve(__dirname, 'assets'),
+];
+
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
+const ROUTE_MAP = {
+  '/': 'pages/index.html',
+  '/index.html': 'pages/index.html',
+  '/bikes': 'pages/bikes.html',
+  '/bikes.html': 'pages/bikes.html',
+  '/ft': 'pages/ft.html',
+  '/ft.html': 'pages/ft.html',
+  '/import': 'pages/import.html',
+  '/import.html': 'pages/import.html',
+  '/form': 'pages/form.html',
+  '/form.html': 'pages/form.html',
+  '/questions': 'pages/questions.html',
+  '/questions.html': 'pages/questions.html',
+  '/finance': 'pages/finance.html',
+  '/finance.html': 'pages/finance.html',
+  '/login': 'pages/login.html',
+  '/login.html': 'pages/login.html',
+};
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+};
+
+function isInsideAllowedRoot(resolvedPath) {
+  return ALLOWED_ROOTS.some(
+    (root) => resolvedPath === root || resolvedPath.startsWith(root + path.sep)
+  );
+}
+
+function resolveSafeFilePath(rawUrl) {
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(rawUrl.split('?')[0]);
+  } catch {
+    return null;
   }
 
-  const extname = String(path.extname(filePath)).toLowerCase();
-  const mimeTypes = {
-    '.html': 'text/html',
-    '.js': 'text/javascript',
-    '.css': 'text/css',
-    '.json': 'application/json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpg',
-    '.gif': 'image/gif',
-    '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon',
-  };
+  // Block null bytes, backslashes, traversal segments, and hidden dotfiles
+  if (
+    decodedPath.includes('\0') ||
+    decodedPath.includes('\\') ||
+    decodedPath.split('/').some((seg) => seg === '..' || seg.startsWith('.'))
+  ) {
+    return null;
+  }
 
-  const contentType = mimeTypes[extname] || 'application/octet-stream';
+  if (ROUTE_MAP[decodedPath]) {
+    return path.resolve(__dirname, ROUTE_MAP[decodedPath]);
+  }
 
-  fs.readFile(filePath, (error, content) => {
+  const relativePath = decodedPath.replace(/^\/+/, '');
+  const candidate = path.resolve(__dirname, relativePath);
+  if (isInsideAllowedRoot(candidate)) {
+    return candidate;
+  }
+
+  // Fallback inside pages/ only if strictly contained within pages/
+  const pagesCandidate = path.resolve(__dirname, 'pages', relativePath);
+  if (isInsideAllowedRoot(pagesCandidate)) {
+    return pagesCandidate;
+  }
+
+  return null;
+}
+
+http.createServer((req, res) => {
+  const safePath = resolveSafeFilePath(req.url || '/');
+  if (!safePath) {
+    res.writeHead(403, { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<h1>403 Forbidden</h1>');
+    return;
+  }
+
+  const extname = String(path.extname(safePath)).toLowerCase();
+  const contentType = MIME_TYPES[extname] || 'application/octet-stream';
+
+  fs.readFile(safePath, (error, content) => {
     if (error) {
-      if (error.code === 'ENOENT') {
-        // Fallback: look in the pages directory if not found at root
-        const fallbackPath = path.join(__dirname, 'pages', cleanUrl);
-        fs.readFile(fallbackPath, (fallbackError, fallbackContent) => {
-          if (fallbackError) {
-            res.writeHead(404, { 'Content-Type': 'text/html' });
-            res.end('<h1>404 Not Found</h1>', 'utf-8');
-          } else {
-            const fallbackExt = String(path.extname(fallbackPath)).toLowerCase();
-            res.writeHead(200, { 'Content-Type': mimeTypes[fallbackExt] || 'text/html' });
-            res.end(fallbackContent, 'utf-8');
-          }
-        });
+      if (error.code === 'ENOENT' || error.code === 'EISDIR') {
+        res.writeHead(404, { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<h1>404 Not Found</h1>');
       } else {
-        res.writeHead(500);
-        res.end('Server error: ' + error.code);
+        res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Internal Server Error');
       }
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content, 'utf-8');
+      return;
     }
+
+    res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': contentType });
+    res.end(content);
   });
-}).listen(PORT);
+}).listen(PORT, HOST);
 
 console.log(`\n=== Servidor local de pruebas ===`);
-console.log(`Disponible en: http://localhost:${PORT}/bikes.html`);
+console.log(`Disponible en: http://${HOST}:${PORT}/bikes.html`);
 console.log(`Presiona Ctrl+C para detener el servidor.\n`);
